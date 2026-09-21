@@ -33,12 +33,17 @@ public class RssSyncService : IRssSyncService
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
+        var hasBlankArticles = await _dbContext.Articles
+            .AnyAsync(article => article.FeedId == feed.Id && string.IsNullOrWhiteSpace(article.Content), cancellationToken);
+
+        if (hasBlankArticles)
+        {
+            feed.ETag = null;
+            feed.LastModified = null;
+        }
+
         return await ProcessFeedAsync(feed, cancellationToken);
     }
-
-    [Obsolete("Use SyncFeedAsync, which resolves the feed URL before processing it.")]
-    public Task<List<Article>> FetchAndProcessFeedAsync(Feed feed, CancellationToken cancellationToken = default) =>
-        SyncFeedAsync(feed, cancellationToken);
 
     private async Task<List<Article>> ProcessFeedAsync(Feed feed, CancellationToken cancellationToken = default)
     {
@@ -68,7 +73,7 @@ public class RssSyncService : IRssSyncService
             if (response.StatusCode == HttpStatusCode.NotModified)
             {
                 _logger.LogInformation("El feed {FeedUrl} no tiene cambios desde la última consulta.", feed.Url);
-                
+
                 feed.LastSyncTime = DateTime.UtcNow;
                 feed.LastSyncSuccess = true;
                 feed.LastSyncError = null;
@@ -88,9 +93,9 @@ public class RssSyncService : IRssSyncService
 
             // 3. Procesamiento del Stream XML
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            
-            using var xmlReader = XmlReader.Create(stream, new XmlReaderSettings 
-            { 
+
+            using var xmlReader = XmlReader.Create(stream, new XmlReaderSettings
+            {
                 Async = true,
                 DtdProcessing = DtdProcessing.Ignore
             });
@@ -104,21 +109,26 @@ public class RssSyncService : IRssSyncService
             feed.WebsiteUrl = syndicationFeed.Links.FirstOrDefault()?.Uri.ToString();
 
             // 4. Cargar IDs existentes en memoria (Optimizando N+1)
-            var existingIds = await _dbContext.Articles
+            var existingArticles = await _dbContext.Articles
                 .Where(a => a.FeedId == feed.Id)
-                .Select(a => a.UniqueId)
-                .ToHashSetAsync(cancellationToken);
+                .ToDictionaryAsync(a => a.UniqueId, cancellationToken);
 
             // 5. Mapeo y filtrado
             foreach (var item in syndicationFeed.Items)
             {
                 string uniqueId = RssSyncServiceHelper.GetUniqueId(item);
 
-                if (!existingIds.Contains(uniqueId))
+                if (!existingArticles.TryGetValue(uniqueId, out var existingArticle))
                 {
                     var article = RssSyncServiceHelper.MapToArticle(item, feed.Id, uniqueId);
                     newArticles.Add(article);
-                    existingIds.Add(uniqueId); // Previene duplicados internos del propio XML
+                    existingArticles.Add(uniqueId, article); // Prevent duplicates inside the same XML document.
+                }
+                else if (string.IsNullOrWhiteSpace(existingArticle.Content))
+                {
+                    var refreshedArticle = RssSyncServiceHelper.MapToArticle(item, feed.Id, uniqueId);
+                    if (!string.IsNullOrWhiteSpace(refreshedArticle.Content))
+                        existingArticle.Content = refreshedArticle.Content;
                 }
             }
 
@@ -151,52 +161,69 @@ public class RssSyncService : IRssSyncService
     }
 
     public async Task<string> ResolveActualFeedUrlAsync(string inputUrl, CancellationToken cancellationToken = default)
-{
-    if (!Uri.TryCreate(inputUrl, UriKind.Absolute, out var targetUri))
     {
-        return inputUrl;
-    }
-
-    var client = _httpClientFactory.CreateClient("RssClient");
-
-    try
-    {
-        using var response = await client.GetAsync(inputUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        var contentType = response.Content.Headers.ContentType?.MediaType;
-
-        // Si la respuesta es directamente XML o RSS/Atom, la URL ya es la correcta
-        if (contentType != null && (contentType.Contains("xml") || contentType.Contains("rss") || contentType.Contains("atom")))
+        if (!Uri.TryCreate(inputUrl, UriKind.Absolute, out var targetUri))
         {
             return inputUrl;
         }
 
-        // Si la respuesta es HTML, inspeccionar el contenido para buscar el tag <link> del RSS
-        var html = await response.Content.ReadAsStringAsync(cancellationToken);
-        
-        var match = System.Text.RegularExpressions.Regex.Match(
-            html, 
-            @"<link[^>]+type=[""']application/(rss|atom)\+xml[""'][^>]+href=[""']([^""']+)[""']", 
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        var client = _httpClientFactory.CreateClient("RssClient");
 
-        if (match.Success)
+        try
         {
-            string discoveredUrl = match.Groups[2].Value;
+            using var response = await client.GetAsync(inputUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            var contentType = response.Content.Headers.ContentType?.MediaType;
 
-            // Convertir URLs relativas ("/feed/") a URLs absolutas ("https://ejemplo.com/feed/")
-            if (Uri.TryCreate(targetUri, discoveredUrl, out var absoluteUri))
+            // Si la respuesta es directamente XML o RSS/Atom, la URL ya es la correcta
+            if (contentType != null && (contentType.Contains("xml") || contentType.Contains("rss") || contentType.Contains("atom")))
             {
-                _logger.LogInformation("Feed detectado automáticamente: {DiscoveredUrl} para la web {InputUrl}", absoluteUri, inputUrl);
-                return absoluteUri.ToString();
+                return inputUrl;
+            }
+
+            // Si la respuesta es HTML, inspeccionar el contenido para buscar el tag <link> del RSS
+            var html = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            var linkTags = System.Text.RegularExpressions.Regex.Matches(
+                html,
+                @"<link\b[^>]*>",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            foreach (System.Text.RegularExpressions.Match linkTag in linkTags)
+            {
+                var tag = linkTag.Value;
+                var typeMatch = System.Text.RegularExpressions.Regex.Match(
+                    tag,
+                    @"\btype\s*=\s*[""']application/(?:rss|atom)\+xml[""']",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                var relMatch = System.Text.RegularExpressions.Regex.Match(
+                    tag,
+                    @"\brel\s*=\s*[""'][^""']*alternate[^""']*[""']",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                var hrefMatch = System.Text.RegularExpressions.Regex.Match(
+                    tag,
+                    @"\bhref\s*=\s*[""']([^""']+)[""']",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+                if ((!typeMatch.Success && !relMatch.Success) || !hrefMatch.Success)
+                    continue;
+
+                string discoveredUrl = WebUtility.HtmlDecode(hrefMatch.Groups[1].Value);
+
+                // Convertir URLs relativas ("/feed/") a URLs absolutas ("https://ejemplo.com/feed/")
+                if (Uri.TryCreate(targetUri, discoveredUrl, out var absoluteUri))
+                {
+                    _logger.LogInformation("Feed detectado automáticamente: {DiscoveredUrl} para la web {InputUrl}", absoluteUri, inputUrl);
+                    return absoluteUri.ToString();
+                }
             }
         }
-    }
-    catch (Exception ex)
-    {
-        _logger.LogWarning(ex, "No se pudo realizar el Auto-Discovery para {InputUrl}", inputUrl);
-    }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo realizar el Auto-Discovery para {InputUrl}", inputUrl);
+        }
 
-    return inputUrl; // Si falla o no encuentra nada, retorna la URL original
-}
+        return inputUrl; // Si falla o no encuentra nada, retorna la URL original
+    }
 
 
 

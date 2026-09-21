@@ -32,13 +32,26 @@ public class MainWindow : Window
         Background = new SolidColorBrush(Color.Parse("#F5F5F5"));
 
         feedTree.ItemTemplate = new FuncDataTemplate<Feed>((feed, _) =>
-            CreateFeedTreeItem(feed));
+            feed == null
+                ? new TextBlock { Text = "Unknown feed" }
+                : CreateFeedTreeItem(feed));
         articleList.ItemTemplate = new FuncDataTemplate<Article>((article, _) =>
-            new Border
-            {
-                Padding = new Thickness(12, 10),
-                Child = new TextBlock { Text = article.Title, TextWrapping = TextWrapping.Wrap, MaxHeight = 44 }
-            });
+            article == null
+                ? new Border
+                {
+                    Padding = new Thickness(12, 10),
+                    Child = new TextBlock { Text = "Untitled article" }
+                }
+                : new Border
+                {
+                    Padding = new Thickness(12, 10),
+                    Child = new TextBlock
+                    {
+                        Text = string.IsNullOrWhiteSpace(article.Title) ? "Untitled article" : article.Title,
+                        TextWrapping = TextWrapping.Wrap,
+                        MaxHeight = 44
+                    }
+                });
 
         feedTree.SelectionChanged += FeedTreeSelectionChanged;
         articleList.SelectionChanged += ArticleListSelectionChanged;
@@ -248,8 +261,7 @@ public class MainWindow : Window
             {
                 try
                 {
-                //    await syncService.FetchAndProcessFeedAsync(feed);
-                    await syncService.ResolveActualFeedUrlAsync(feed.Url);
+                    await syncService.SyncFeedAsync(feed);
                 }
                 catch (Exception ex)
                 {
@@ -296,7 +308,9 @@ public class MainWindow : Window
 
         articleTitle.Text = article.Title;
         articleMeta.Text = $"{article.Author ?? "Unknown author"} | {article.PublishDate:g}\n{article.Url}";
-        articleContent.Text = article.Content;
+        articleContent.Text = string.IsNullOrWhiteSpace(article.Content)
+            ? "This feed does not include the article text. Open the original article using the link above."
+            : article.Content;
     }
 
     private async void AddFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args)
@@ -315,7 +329,7 @@ public class MainWindow : Window
             var feed = new Feed { Url = url.ToString(), Title = url.Host };
             dbContext.Feeds.Add(feed);
             await dbContext.SaveChangesAsync();
-            var newArticles = await syncService.FetchAndProcessFeedAsync(feed);
+            var newArticles = await syncService.SyncFeedAsync(feed);
             urlInput.Text = string.Empty;
             await LoadFeedsAsync();
             feedTree.SelectedItem = feedTree.ItemsSource is IEnumerable<Feed> loadedFeeds
@@ -376,7 +390,7 @@ public class MainWindow : Window
 
         status.Text = $"Syncing {selectedFeed.Title}...";
         var feed = await dbContext.Feeds.FirstAsync(item => item.Id == selectedFeed.Id);
-        var newArticles = await syncService.FetchAndProcessFeedAsync(feed);
+        var newArticles = await syncService.SyncFeedAsync(feed);
         await LoadFeedsAsync();
 
         var refreshedFeed = feedTree.ItemsSource is IEnumerable<Feed> feeds
