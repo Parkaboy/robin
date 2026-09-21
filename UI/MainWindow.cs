@@ -24,7 +24,7 @@ public class MainWindow : Window
         this.dbContext = dbContext;
         this.syncService = syncService;
 
-        Title = "Robin RSS Reader";
+        Title = "Robin Reader";
         Width = 1280;
         Height = 760;
         MinWidth = 800;
@@ -32,7 +32,7 @@ public class MainWindow : Window
         Background = new SolidColorBrush(Color.Parse("#F5F5F5"));
 
         feedTree.ItemTemplate = new FuncDataTemplate<Feed>((feed, _) =>
-            new TextBlock { Text = feed.Title, Margin = new Thickness(10, 8), TextTrimming = TextTrimming.CharacterEllipsis });
+            CreateFeedTreeItem(feed));
         articleList.ItemTemplate = new FuncDataTemplate<Article>((article, _) =>
             new Border
             {
@@ -50,7 +50,62 @@ public class MainWindow : Window
         };
 
         Content = BuildLayout();
-        Opened += async (_, _) => await LoadFeedsAsync();
+        Opened += async (_, _) => await InitializeAsync();
+    }
+
+    private Control CreateFeedTreeItem(Feed feed)
+    {
+        var item = new Border
+        {
+            Padding = new Thickness(0),
+            ContextMenu = new ContextMenu
+            {
+                ItemsSource = new object[]
+                {
+                    new MenuItem
+                    {
+                        Header = "Modify feed",
+                        Command = new SimpleCommand(() => RunFeedActionAsync(feed, EditSelectedFeedAsync))
+                    },
+                    new MenuItem
+                    {
+                        Header = "Sync feed",
+                        Command = new SimpleCommand(() => RunFeedActionAsync(feed, SyncSelectedFeedAsync))
+                    },
+                    new MenuItem
+                    {
+                        Header = "Delete feed",
+                        Command = new SimpleCommand(() => RunFeedActionAsync(feed, RemoveSelectedFeedAsync))
+                    }
+                }
+            },
+            Child = new StackPanel
+            {
+                Margin = new Thickness(10, 7),
+                Spacing = 2,
+                Children =
+                {
+                    new TextBlock { Text = feed.Title, TextTrimming = TextTrimming.CharacterEllipsis },
+                    new TextBlock
+                    {
+                        Text = feed.LastSyncSuccess
+                            ? $"{feed.Articles.Count} article(s)"
+                            : "Sync failed",
+                        FontSize = 11,
+                        Foreground = new SolidColorBrush(Color.Parse("#A6A6A6")),
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    }
+                }
+            }
+        };
+
+        item.PointerPressed += (_, args) =>
+        {
+            if (args.GetCurrentPoint(item).Properties.PointerUpdateKind == Avalonia.Input.PointerUpdateKind.RightButtonPressed)
+                selectedFeed = feed;
+        };
+
+        return item;
     }
 
     private Control BuildLayout()
@@ -66,6 +121,11 @@ public class MainWindow : Window
         Grid.SetColumn(addFeedButton, 1);
         addFeedPanel.Children.Add(addFeedButton);
 
+        var feedBrand = new TextBlock { Text = "ROBIN", FontSize = 20, FontWeight = FontWeight.Bold, Foreground = Brushes.White, LetterSpacing = 2 };
+        var feedSubtitle = new TextBlock { Text = "YOUR READING DESK", FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#A6A6A6")), Margin = new Thickness(0, 6, 0, 24) };
+        Grid.SetRow(feedSubtitle, 1);
+        Grid.SetRow(feedTree, 2);
+
         var feedsPanel = new Border
         {
             Background = new SolidColorBrush(Color.Parse("#202020")),
@@ -75,14 +135,17 @@ public class MainWindow : Window
                 RowDefinitions = new RowDefinitions("Auto,Auto,*"),
                 Children =
                 {
-                    new TextBlock { Text = "ROBIN", FontSize = 20, FontWeight = FontWeight.Bold, Foreground = Brushes.White, LetterSpacing = 2 },
-                    new TextBlock { Text = "YOUR READING DESK", FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#A6A6A6")), Margin = new Thickness(0, 6, 0, 24) },
+                    feedBrand,
+                    feedSubtitle,
                     feedTree
                 }
             }
         };
-        Grid.SetRow(feedTree, 2);
 
+        var inboxTitle = new TextBlock { Text = "Articles", FontSize = 22, FontWeight = FontWeight.Bold, Foreground = new SolidColorBrush(Color.Parse("#1A1A1A")) };
+        var inboxSubtitle = new TextBlock { Text = "Stories from the selected feed", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#616161")), Margin = new Thickness(0, 5, 0, 18) };
+        Grid.SetRow(inboxSubtitle, 1);
+        Grid.SetRow(articleList, 2);
         var articlesPanel = new Border
         {
             Background = Brushes.White,
@@ -92,13 +155,12 @@ public class MainWindow : Window
                 RowDefinitions = new RowDefinitions("Auto,Auto,*"),
                 Children =
                 {
-                    new TextBlock { Text = "Inbox", FontSize = 22, FontWeight = FontWeight.Bold, Foreground = new SolidColorBrush(Color.Parse("#1A1A1A")) },
-                    new TextBlock { Text = "Recent stories", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#616161")), Margin = new Thickness(0, 5, 0, 18) },
+                    inboxTitle,
+                    inboxSubtitle,
                     articleList
                 }
             }
         };
-        Grid.SetRow(articleList, 2);
 
         var details = new StackPanel { Spacing = 14, MaxWidth = 760, HorizontalAlignment = HorizontalAlignment.Left };
         details.Children.Add(articleTitle);
@@ -129,15 +191,34 @@ public class MainWindow : Window
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
         var topBar = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+            ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto"),
             Background = Brushes.White,
             Margin = new Thickness(24, 14)
         };
         topBar.Children.Add(new TextBlock { Text = "Reading list", FontSize = 16, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center });
-        Grid.SetColumn(addFeedPanel, 1);
+        var feedMenu = new Menu
+        {
+            ItemsSource = new[]
+            {
+                new MenuItem
+                {
+                    Header = "Feeds",
+                    ItemsSource = new[]
+                    {
+                        new MenuItem { Header = "Edit selected feed", Command = new SimpleCommand(async () => await EditSelectedFeedAsync()) },
+                        new MenuItem { Header = "Remove selected feed", Command = new SimpleCommand(async () => await RemoveSelectedFeedAsync()) }
+                    }
+                }
+            },
+            Margin = new Thickness(24, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(feedMenu, 1);
+        topBar.Children.Add(feedMenu);
+        Grid.SetColumn(addFeedPanel, 2);
         topBar.Children.Add(addFeedPanel);
         status.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(status, 2);
+        Grid.SetColumn(status, 3);
         topBar.Children.Add(status);
         root.Children.Add(topBar);
         Grid.SetRow(columns, 1);
@@ -147,9 +228,41 @@ public class MainWindow : Window
 
     private async Task LoadFeedsAsync()
     {
-        var feeds = await dbContext.Feeds.AsNoTracking().OrderBy(feed => feed.Title).ToListAsync();
+        var feeds = await dbContext.Feeds
+            .AsNoTracking()
+            .Include(feed => feed.Articles)
+            .OrderBy(feed => feed.Title)
+            .ToListAsync();
         feedTree.ItemsSource = feeds;
         status.Text = $"{feeds.Count} feed(s)";
+    }
+
+    private async Task InitializeAsync()
+    {
+        try
+        {
+            var feeds = await dbContext.Feeds.OrderBy(feed => feed.Title).ToListAsync();
+            status.Text = feeds.Count == 0 ? "No feeds yet" : "Syncing feeds...";
+
+            foreach (var feed in feeds)
+            {
+                try
+                {
+                //    await syncService.FetchAndProcessFeedAsync(feed);
+                    await syncService.ResolveActualFeedUrlAsync(feed.Url);
+                }
+                catch (Exception ex)
+                {
+                    status.Text = $"Could not sync {feed.Title}: {ex.Message}";
+                }
+            }
+
+            await LoadFeedsAsync();
+        }
+        catch (Exception ex)
+        {
+            status.Text = $"Could not load feeds: {ex.Message}";
+        }
     }
 
     private async void FeedTreeSelectionChanged(object? sender, SelectionChangedEventArgs args)
@@ -162,6 +275,15 @@ public class MainWindow : Window
                 .OrderByDescending(article => article.PublishDate)
                 .ToListAsync();
         ClearArticle();
+
+        if (selectedFeed != null)
+        {
+            status.Text = articleList.ItemsSource is IEnumerable<Article> articles
+                ? $"{articles.Count()} article(s)"
+                : "No articles";
+            if (!selectedFeed.LastSyncSuccess && !string.IsNullOrWhiteSpace(selectedFeed.LastSyncError))
+                status.Text = selectedFeed.LastSyncError;
+        }
     }
 
     private void ArticleListSelectionChanged(object? sender, SelectionChangedEventArgs args)
@@ -193,11 +315,14 @@ public class MainWindow : Window
             var feed = new Feed { Url = url.ToString(), Title = url.Host };
             dbContext.Feeds.Add(feed);
             await dbContext.SaveChangesAsync();
-            await syncService.FetchAndProcessFeedAsync(feed);
+            var newArticles = await syncService.FetchAndProcessFeedAsync(feed);
             urlInput.Text = string.Empty;
             await LoadFeedsAsync();
+            feedTree.SelectedItem = feedTree.ItemsSource is IEnumerable<Feed> loadedFeeds
+                ? loadedFeeds.FirstOrDefault(loadedFeed => loadedFeed.Id == feed.Id)
+                : null;
             status.Text = feed.LastSyncSuccess
-                ? $"Added {feed.Title}."
+                ? $"Added {feed.Title}. {newArticles.Count} new article(s)."
                 : feed.LastSyncError ?? "The feed could not be synchronized.";
         }
         catch (Exception ex)
@@ -210,10 +335,148 @@ public class MainWindow : Window
         }
     }
 
+    private async Task EditSelectedFeedAsync()
+    {
+        if (selectedFeed == null)
+        {
+            status.Text = "Select a feed first.";
+            return;
+        }
+
+        var newUrl = await ShowFeedUrlDialogAsync("Edit feed", selectedFeed.Url);
+        if (newUrl == null)
+            return;
+
+        var feedToUpdate = await dbContext.Feeds.FirstAsync(feed => feed.Id == selectedFeed.Id);
+        feedToUpdate.Url = newUrl;
+        feedToUpdate.LastSyncSuccess = false;
+        feedToUpdate.LastSyncError = null;
+        await dbContext.SaveChangesAsync();
+        status.Text = "Feed updated. It will sync the next time the app starts.";
+        await LoadFeedsAsync();
+    }
+
+    private async Task RunFeedActionAsync(Feed feed, Func<Task> action)
+    {
+        selectedFeed = feed;
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            status.Text = ex.Message;
+        }
+    }
+
+    private async Task SyncSelectedFeedAsync()
+    {
+        if (selectedFeed == null)
+            return;
+
+        status.Text = $"Syncing {selectedFeed.Title}...";
+        var feed = await dbContext.Feeds.FirstAsync(item => item.Id == selectedFeed.Id);
+        var newArticles = await syncService.FetchAndProcessFeedAsync(feed);
+        await LoadFeedsAsync();
+
+        var refreshedFeed = feedTree.ItemsSource is IEnumerable<Feed> feeds
+            ? feeds.FirstOrDefault(item => item.Id == feed.Id)
+            : null;
+        feedTree.SelectedItem = refreshedFeed;
+        status.Text = feed.LastSyncSuccess
+            ? $"{newArticles.Count} new article(s)"
+            : feed.LastSyncError ?? "The feed could not be synchronized.";
+    }
+
+    private async Task RemoveSelectedFeedAsync()
+    {
+        if (selectedFeed == null)
+        {
+            status.Text = "Select a feed first.";
+            return;
+        }
+
+        var confirmed = await ShowConfirmationDialogAsync("Remove feed", $"Remove '{selectedFeed.Title}' and its articles?");
+        if (!confirmed)
+            return;
+
+        dbContext.Feeds.Remove(selectedFeed);
+        await dbContext.SaveChangesAsync();
+        selectedFeed = null;
+        articleList.ItemsSource = null;
+        ClearArticle();
+        await LoadFeedsAsync();
+        status.Text = "Feed removed.";
+    }
+
+    private async Task<string?> ShowFeedUrlDialogAsync(string title, string initialUrl)
+    {
+        var input = new TextBox { Text = initialUrl, MinWidth = 420 };
+        var dialog = new Window { Title = title, Width = 520, Height = 170, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var save = new Button { Content = "Save", IsDefault = true };
+        var cancel = new Button { Content = "Cancel", IsCancel = true };
+        save.Click += (_, _) =>
+        {
+            if (Uri.TryCreate(input.Text?.Trim(), UriKind.Absolute, out var uri) &&
+                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                dialog.Close(uri.ToString());
+            }
+        };
+        cancel.Click += (_, _) => dialog.Close(null);
+        dialog.Content = new StackPanel
+        {
+            Margin = new Thickness(20),
+            Spacing = 12,
+            Children =
+            {
+                new TextBlock { Text = "Feed URL" },
+                input,
+                new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { save, cancel } }
+            }
+        };
+        return await dialog.ShowDialog<string?>(this);
+    }
+
+    private async Task<bool> ShowConfirmationDialogAsync(string title, string message)
+    {
+        var dialog = new Window { Title = title, Width = 420, Height = 160, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var remove = new Button { Content = "Remove" };
+        var cancel = new Button { Content = "Cancel", IsCancel = true };
+        remove.Click += (_, _) => dialog.Close(true);
+        cancel.Click += (_, _) => dialog.Close(false);
+        dialog.Content = new StackPanel
+        {
+            Margin = new Thickness(20),
+            Spacing = 16,
+            Children =
+            {
+                new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
+                new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { remove, cancel } }
+            }
+        };
+        return await dialog.ShowDialog<bool>(this);
+    }
+
     private void ClearArticle()
     {
-        articleTitle.Text = "Select an article";
+        articleTitle.Text = "Reading pane";
         articleMeta.Text = string.Empty;
         articleContent.Text = string.Empty;
     }
+}
+
+public sealed class SimpleCommand : System.Windows.Input.ICommand
+{
+    private readonly Func<Task> execute;
+
+    public SimpleCommand(Func<Task> execute) => this.execute = execute;
+
+    public bool CanExecute(object? parameter) => true;
+    public event EventHandler? CanExecuteChanged
+    {
+        add { }
+        remove { }
+    }
+    public async void Execute(object? parameter) => await execute();
 }

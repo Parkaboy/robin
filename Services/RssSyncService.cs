@@ -78,6 +78,12 @@ public class RssSyncService : IRssSyncService
 
             var syndicationFeed = SyndicationFeed.Load(xmlReader);
 
+            if (!string.IsNullOrWhiteSpace(syndicationFeed.Title?.Text))
+                feed.Title = syndicationFeed.Title.Text;
+
+            feed.Description = syndicationFeed.Description?.Text;
+            feed.WebsiteUrl = syndicationFeed.Links.FirstOrDefault()?.Uri.ToString();
+
             // 4. Cargar IDs existentes en memoria (Optimizando N+1)
             var existingIds = await _dbContext.Articles
                 .Where(a => a.FeedId == feed.Id)
@@ -87,11 +93,11 @@ public class RssSyncService : IRssSyncService
             // 5. Mapeo y filtrado
             foreach (var item in syndicationFeed.Items)
             {
-                string uniqueId = GetUniqueId(item);
+                string uniqueId = RssSyncServiceHelper.GetUniqueId(item);
 
                 if (!existingIds.Contains(uniqueId))
                 {
-                    var article = MapToArticle(item, feed.Id, uniqueId);
+                    var article = RssSyncServiceHelper.MapToArticle(item, feed.Id, uniqueId);
                     newArticles.Add(article);
                     existingIds.Add(uniqueId); // Previene duplicados internos del propio XML
                 }
@@ -125,44 +131,54 @@ public class RssSyncService : IRssSyncService
         return newArticles;
     }
 
-    // Métodos auxiliares
-    private static string GetUniqueId(SyndicationItem item)
+    public async Task<string> ResolveActualFeedUrlAsync(string inputUrl, CancellationToken cancellationToken = default)
+{
+    if (!Uri.TryCreate(inputUrl, UriKind.Absolute, out var targetUri))
     {
-        if (!string.IsNullOrWhiteSpace(item.Id))
-            return item.Id;
-
-        var link = item.Links.FirstOrDefault()?.Uri.ToString();
-        if (!string.IsNullOrWhiteSpace(link))
-            return link;
-
-        return item.Title?.Text ?? Guid.NewGuid().ToString();
+        return inputUrl;
     }
 
-    private static Article MapToArticle(SyndicationItem item, int feedId, string uniqueId)
-    {
-        return new Article
-        {
-            FeedId = feedId,
-            UniqueId = uniqueId,
-            Title = item.Title?.Text ?? "Sin título",
-            Content = ExtractContent(item),
-            Url = item.Links.FirstOrDefault()?.Uri.ToString() ?? string.Empty,
-            Author = item.Authors.FirstOrDefault()?.Name ?? item.Authors.FirstOrDefault()?.Email,
-            PublishDate = item.PublishDate != default 
-                ? item.PublishDate.UtcDateTime 
-                : item.LastUpdatedTime.UtcDateTime,
-            IsRead = false,
-            IsFavorite = false
-        };
-    }
+    var client = _httpClientFactory.CreateClient("RssClient");
 
-    private static string ExtractContent(SyndicationItem item)
+    try
     {
-        if (item.Content is TextSyndicationContent textContent)
+        using var response = await client.GetAsync(inputUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        var contentType = response.Content.Headers.ContentType?.MediaType;
+
+        // Si la respuesta es directamente XML o RSS/Atom, la URL ya es la correcta
+        if (contentType != null && (contentType.Contains("xml") || contentType.Contains("rss") || contentType.Contains("atom")))
         {
-            return textContent.Text;
+            return inputUrl;
         }
 
-        return item.Summary?.Text ?? string.Empty;
+        // Si la respuesta es HTML, inspeccionar el contenido para buscar el tag <link> del RSS
+        var html = await response.Content.ReadAsStringAsync(cancellationToken);
+        
+        var match = System.Text.RegularExpressions.Regex.Match(
+            html, 
+            @"<link[^>]+type=[""']application/(rss|atom)\+xml[""'][^>]+href=[""']([^""']+)[""']", 
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        if (match.Success)
+        {
+            string discoveredUrl = match.Groups[2].Value;
+
+            // Convertir URLs relativas ("/feed/") a URLs absolutas ("https://ejemplo.com/feed/")
+            if (Uri.TryCreate(targetUri, discoveredUrl, out var absoluteUri))
+            {
+                _logger.LogInformation("Feed detectado automáticamente: {DiscoveredUrl} para la web {InputUrl}", absoluteUri, inputUrl);
+                return absoluteUri.ToString();
+            }
+        }
     }
+    catch (Exception ex)
+    {
+        _logger.LogWarning(ex, "No se pudo realizar el Auto-Discovery para {InputUrl}", inputUrl);
+    }
+
+    return inputUrl; // Si falla o no encuentra nada, retorna la URL original
+}
+
+
+
 }
