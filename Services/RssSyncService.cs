@@ -5,8 +5,6 @@ using System.Xml;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-
-// This class handles HTTP headers (ETag and Last-Modified), downloads the XML stream without blocking the UI, and parses articles while avoiding duplicates.
 public class RssSyncService : IRssSyncService
 {
     private readonly IHttpClientFactory _httpClientFactory;
@@ -36,12 +34,9 @@ public class RssSyncService : IRssSyncService
             request.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(feed.ETag));
         }
 
-        if (!string.IsNullOrEmpty(feed.LastModified))
+        if (!string.IsNullOrEmpty(feed.LastModified) && DateTimeOffset.TryParse(feed.LastModified, out var lastModifiedDate))
         {
-            if (DateTimeOffset.TryParse(feed.LastModified, out var lastModifiedDate))
-            {
-                request.Headers.IfModifiedSince = lastModifiedDate;
-            }
+            request.Headers.IfModifiedSince = lastModifiedDate;
         }
 
         try
@@ -50,55 +45,59 @@ public class RssSyncService : IRssSyncService
 
             using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
-            // 2. Manejo de respuesta HTTP 304 (Sin cambios)
+            // 2. Manejo de respuesta HTTP 304 (Not Modified)
             if (response.StatusCode == HttpStatusCode.NotModified)
             {
                 _logger.LogInformation("El feed {FeedUrl} no tiene cambios desde la última consulta.", feed.Url);
+                
                 feed.LastSyncTime = DateTime.UtcNow;
                 feed.LastSyncSuccess = true;
                 feed.LastSyncError = null;
-                
+
                 await _dbContext.SaveChangesAsync(cancellationToken);
-                return newArticles; // Retorna lista vacía
+                return newArticles;
             }
 
             response.EnsureSuccessStatusCode();
 
-            // Guardar o actualizar metadatos ETag / Last-Modified
+            // Guardar/Actualizar metadatos de sincronización HTTP
             if (response.Headers.ETag != null)
                 feed.ETag = response.Headers.ETag.Tag;
 
             if (response.Content.Headers.LastModified.HasValue)
                 feed.LastModified = response.Content.Headers.LastModified.Value.ToString("r");
 
-            // 3. Procesamiento asíncrono del Stream XML
+            // 3. Procesamiento del Stream XML
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             
             using var xmlReader = XmlReader.Create(stream, new XmlReaderSettings 
             { 
                 Async = true,
-                DtdProcessing = DtdProcessing.Ignore // Seguridad contra ataques XXE
+                DtdProcessing = DtdProcessing.Ignore
             });
 
             var syndicationFeed = SyndicationFeed.Load(xmlReader);
 
-            // 4. Mapeo y filtrado de artículos existentes
+            // 4. Cargar IDs existentes en memoria (Optimizando N+1)
+            var existingIds = await _dbContext.Articles
+                .Where(a => a.FeedId == feed.Id)
+                .Select(a => a.UniqueId)
+                .ToHashSetAsync(cancellationToken);
+
+            // 5. Mapeo y filtrado
             foreach (var item in syndicationFeed.Items)
             {
                 string uniqueId = GetUniqueId(item);
 
-                // Verificar en la BD si el artículo ya existe para este feed
-                bool exists = await _dbContext.Articles
-                    .AnyAsync(a => a.FeedId == feed.Id && a.UniqueId == uniqueId, cancellationToken);
-
-                if (!exists)
+                if (!existingIds.Contains(uniqueId))
                 {
                     var article = MapToArticle(item, feed.Id, uniqueId);
                     newArticles.Add(article);
+                    existingIds.Add(uniqueId); // Previene duplicados internos del propio XML
                 }
             }
 
-            // 5. Persistencia y actualización del estado del feed
+            // 6. Persistencia
             if (newArticles.Any())
             {
                 _dbContext.Articles.AddRange(newArticles);
@@ -126,7 +125,7 @@ public class RssSyncService : IRssSyncService
         return newArticles;
     }
 
-    // Métodos auxiliares de mapeo
+    // Métodos auxiliares
     private static string GetUniqueId(SyndicationItem item)
     {
         if (!string.IsNullOrWhiteSpace(item.Id))
@@ -146,12 +145,24 @@ public class RssSyncService : IRssSyncService
             FeedId = feedId,
             UniqueId = uniqueId,
             Title = item.Title?.Text ?? "Sin título",
-            Content = item.Summary?.Text ?? item.Content?.ToString() ?? string.Empty,
+            Content = ExtractContent(item),
             Url = item.Links.FirstOrDefault()?.Uri.ToString() ?? string.Empty,
-            Author = item.Authors.FirstOrDefault()?.Name,
-            PublishDate = item.PublishDate != default ? item.PublishDate.DateTime : item.LastUpdatedTime.DateTime,
+            Author = item.Authors.FirstOrDefault()?.Name ?? item.Authors.FirstOrDefault()?.Email,
+            PublishDate = item.PublishDate != default 
+                ? item.PublishDate.UtcDateTime 
+                : item.LastUpdatedTime.UtcDateTime,
             IsRead = false,
             IsFavorite = false
         };
+    }
+
+    private static string ExtractContent(SyndicationItem item)
+    {
+        if (item.Content is TextSyndicationContent textContent)
+        {
+            return textContent.Text;
+        }
+
+        return item.Summary?.Text ?? string.Empty;
     }
 }

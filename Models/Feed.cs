@@ -1,18 +1,22 @@
 public class Feed {
-    public Int Id { get; set; }
-    public String Title { get; set; } = string.Empty;
-    public String Url { get; set; } = string.Empty;            // URL del XML RSS
-    public String? WebsiteUrl { get; set; }                    // Sitio web principal
-    public String? Description { get; set; }
-    public String? FaviconUrl { get; set; }
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;            // URL del XML RSS
+    public string? WebsiteUrl { get; set; }                    // Sitio web principal
+    public string? Description { get; set; }
+    public string? FaviconUrl { get; set; }
 
     // Control de sincronización y caché
     public DateTime? LastUpdated { get; set; }
-    public String? ETag { get; set; }                          // Para evitar descargas repetidas (HTTP ETag)
-    public String? LastModified { get; set; }                   // Para HTTP Last-Modified
+    public string? ETag { get; set; }                          // Para evitar descargas repetidas (HTTP ETag)
+    public string? LastModified { get; set; }                   // Para HTTP Last-Modified
+
+    public DateTime? LastSyncTime { get; set; }                // Última vez que se sincronizó el feed
+    public bool LastSyncSuccess { get; set; }                  // Indica si la última sincronización fue exitosa
+    public string? LastSyncError { get; set; }                 // Mensaje de error
 
     // Relaciones
-    public Int? CategoryId { get; set; }
+    public int? CategoryId { get; set; }
     public Category? Category { get; set; }
     public List<Article> Articles { get; set; } = new();
 }

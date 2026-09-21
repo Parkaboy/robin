@@ -6,20 +6,69 @@
 */
 
 
-var services = new ServiceCollection();
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Serilog;
 
-// Configure httpClient with a custom User-Agent (required by many RSS servers)
-services.AddHttpClient("RssClient", client => {
-    client.Timeout = TimeSpan.FromSeconds(15);
-    client.DefaultRequestHeaders.Add("User-Agent", "MiLectorRSS/1.0 (.NET C# Desktop App)");
-});
+// 1. Configure Serilog as the global logger
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .WriteTo.File("logs/rss_reader_.txt", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
+try
+{
+    Log.Information("Starting RSS Reader application...");
 
-// Register the DbContext and services
-services.AddDbContext<AppDbContext>();
-services.AddTransient<IRssSyncService, RssSyncService>();
+    // 2. Create the service collection (Dependency Injection container)
+    var services = new ServiceCollection();
 
-// Configure Serilog or another ILogger provider
-services.AddLogging(builder => builder.AddConsole());
+    // 3. Configure HttpClient with a custom User-Agent
+    services.AddHttpClient("RssClient", client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(15);
+        client.DefaultRequestHeaders.Add("User-Agent", "Robin_Reader/1.0 (.NET C# Desktop App)");
+    });
 
-var provider = services.BuildServiceProvider();
+    // 4. Register DbContext and application services
+    services.AddDbContext<AppDbContext>();
+    services.AddTransient<IRssSyncService, RssSyncService>();
+
+    // 5. Configure Microsoft Logging to use Serilog
+    services.AddLogging(builder =>
+    {
+        builder.ClearProviders(); // Remove default logging providers
+        builder.AddSerilog(Log.Logger); // Use Serilog for ILogger<T>
+    });
+
+    // 6. Build the service provider
+    using var provider = services.BuildServiceProvider();
+
+    // 7. Execute automatic database migrations on startup (SQLite)
+    using (var scope = provider.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        dbContext.Database.Migrate();
+    }
+
+    // 8. Usage example: Retrieve the service and trigger sync
+    var syncService = provider.GetRequiredService<IRssSyncService>();
+    var db = provider.GetRequiredService<AppDbContext>();
+
+    // Retrieve the first feed or create a test one if the database is empty
+    var feed = db.Feeds.FirstOrDefault();
+    if (feed != null)
+    {
+        var newArticles = await syncService.FetchAndProcessFeedAsync(feed);
+        Console.WriteLine($"Processed {newArticles.Count} new articles.");
+    }
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "The application terminated unexpectedly.");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
