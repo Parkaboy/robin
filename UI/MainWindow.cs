@@ -9,14 +9,14 @@ public class MainWindow : Window
 {
     private readonly AppDbContext dbContext;
     private readonly IRssSyncService syncService;
-    private readonly TextBox urlInput = new() { Watermark = "RSS or Atom URL" };
-    private readonly Button addFeedButton = new() { Content = "Add feed" };
-    private readonly TreeView feedTree = new();
-    private readonly ListBox articleList = new();
-    private readonly TextBlock articleTitle = new() { FontSize = 22, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap };
-    private readonly TextBlock articleMeta = new() { Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap };
-    private readonly TextBlock articleContent = new() { TextWrapping = TextWrapping.Wrap, LineHeight = 1.4 };
-    private readonly TextBlock status = new() { Foreground = Brushes.Gray };
+    private readonly TextBox urlInput = new() { Watermark = "Paste a feed URL" };
+    private readonly Button addFeedButton = new() { Content = "Add feed", HorizontalContentAlignment = HorizontalAlignment.Center };
+    private readonly TreeView feedTree = new() { Background = Brushes.Transparent };
+    private readonly ListBox articleList = new() { Background = Brushes.Transparent };
+    private readonly TextBlock articleTitle = new() { FontSize = 28, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Color.Parse("#1A1A1A")) };
+    private readonly TextBlock articleMeta = new() { Foreground = new SolidColorBrush(Color.Parse("#616161")), TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock articleContent = new() { TextWrapping = TextWrapping.Wrap, LineHeight = 1.55, FontSize = 16, Foreground = new SolidColorBrush(Color.Parse("#292929")) };
+    private readonly TextBlock status = new() { Foreground = new SolidColorBrush(Color.Parse("#616161")) };
     private Feed? selectedFeed;
 
     public MainWindow(AppDbContext dbContext, IRssSyncService syncService)
@@ -25,15 +25,20 @@ public class MainWindow : Window
         this.syncService = syncService;
 
         Title = "Robin RSS Reader";
-        Width = 1200;
-        Height = 720;
+        Width = 1280;
+        Height = 760;
         MinWidth = 800;
         MinHeight = 500;
+        Background = new SolidColorBrush(Color.Parse("#F5F5F5"));
 
         feedTree.ItemTemplate = new FuncDataTemplate<Feed>((feed, _) =>
-            new TextBlock { Text = feed.Title, Margin = new Thickness(4) });
+            new TextBlock { Text = feed.Title, Margin = new Thickness(10, 8), TextTrimming = TextTrimming.CharacterEllipsis });
         articleList.ItemTemplate = new FuncDataTemplate<Article>((article, _) =>
-            new TextBlock { Text = article.Title, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
+            new Border
+            {
+                Padding = new Thickness(12, 10),
+                Child = new TextBlock { Text = article.Title, TextWrapping = TextWrapping.Wrap, MaxHeight = 44 }
+            });
 
         feedTree.SelectionChanged += FeedTreeSelectionChanged;
         articleList.SelectionChanged += ArticleListSelectionChanged;
@@ -53,7 +58,9 @@ public class MainWindow : Window
         var addFeedPanel = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-            Margin = new Thickness(12)
+            ColumnSpacing = 8,
+            MaxWidth = 520,
+            HorizontalAlignment = HorizontalAlignment.Left
         };
         addFeedPanel.Children.Add(urlInput);
         Grid.SetColumn(addFeedButton, 1);
@@ -61,66 +68,79 @@ public class MainWindow : Window
 
         var feedsPanel = new Border
         {
-            BorderBrush = Brushes.LightGray,
-            BorderThickness = new Thickness(0, 0, 1, 0),
-            Child = new DockPanel
+            Background = new SolidColorBrush(Color.Parse("#202020")),
+            Padding = new Thickness(18, 24),
+            Child = new Grid
             {
+                RowDefinitions = new RowDefinitions("Auto,Auto,*"),
                 Children =
                 {
-                    new TextBlock { Text = "Feeds", FontSize = 18, FontWeight = FontWeight.Bold, Margin = new Thickness(12, 12, 12, 4) },
+                    new TextBlock { Text = "ROBIN", FontSize = 20, FontWeight = FontWeight.Bold, Foreground = Brushes.White, LetterSpacing = 2 },
+                    new TextBlock { Text = "YOUR READING DESK", FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#A6A6A6")), Margin = new Thickness(0, 6, 0, 24) },
                     feedTree
                 }
             }
         };
+        Grid.SetRow(feedTree, 2);
 
         var articlesPanel = new Border
         {
-            BorderBrush = Brushes.LightGray,
-            BorderThickness = new Thickness(0, 0, 1, 0),
-            Padding = new Thickness(12),
-            Child = new DockPanel
+            Background = Brushes.White,
+            Padding = new Thickness(22, 24),
+            Child = new Grid
             {
+                RowDefinitions = new RowDefinitions("Auto,Auto,*"),
                 Children =
                 {
-                    new TextBlock { Text = "Articles", FontSize = 18, FontWeight = FontWeight.Bold, Margin = new Thickness(0, 0, 0, 8) },
+                    new TextBlock { Text = "Inbox", FontSize = 22, FontWeight = FontWeight.Bold, Foreground = new SolidColorBrush(Color.Parse("#1A1A1A")) },
+                    new TextBlock { Text = "Recent stories", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#616161")), Margin = new Thickness(0, 5, 0, 18) },
                     articleList
                 }
             }
         };
+        Grid.SetRow(articleList, 2);
 
-        var details = new StackPanel { Spacing = 10 };
+        var details = new StackPanel { Spacing = 14, MaxWidth = 760, HorizontalAlignment = HorizontalAlignment.Left };
         details.Children.Add(articleTitle);
         details.Children.Add(articleMeta);
-        details.Children.Add(new Separator());
+        details.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.Parse("#E1E1E1")), Margin = new Thickness(0, 4, 0, 8) });
         details.Children.Add(articleContent);
 
         var detailScroll = new ScrollViewer
         {
-            Padding = new Thickness(20),
+            Padding = new Thickness(48, 42),
+            Background = new SolidColorBrush(Color.Parse("#FAFAFA")),
             Content = details,
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
         };
 
         var columns = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("240,320,*"),
-            RowDefinitions = new RowDefinitions("Auto,*")
+            ColumnDefinitions = new ColumnDefinitions("220,340,*"),
+            RowDefinitions = new RowDefinitions("*"),
+            Background = new SolidColorBrush(Color.Parse("#F5F5F5"))
         };
-        Grid.SetColumnSpan(addFeedPanel, 3);
-        columns.Children.Add(addFeedPanel);
-        Grid.SetRow(feedsPanel, 1);
         columns.Children.Add(feedsPanel);
         Grid.SetColumn(articlesPanel, 1);
-        Grid.SetRow(articlesPanel, 1);
         columns.Children.Add(articlesPanel);
         Grid.SetColumn(detailScroll, 2);
-        Grid.SetRow(detailScroll, 1);
         columns.Children.Add(detailScroll);
 
-        var root = new DockPanel();
-        DockPanel.SetDock(status, Dock.Bottom);
-        status.Margin = new Thickness(12, 6);
-        root.Children.Add(status);
+        var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
+        var topBar = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+            Background = Brushes.White,
+            Margin = new Thickness(24, 14)
+        };
+        topBar.Children.Add(new TextBlock { Text = "Reading list", FontSize = 16, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center });
+        Grid.SetColumn(addFeedPanel, 1);
+        topBar.Children.Add(addFeedPanel);
+        status.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(status, 2);
+        topBar.Children.Add(status);
+        root.Children.Add(topBar);
+        Grid.SetRow(columns, 1);
         root.Children.Add(columns);
         return root;
     }
