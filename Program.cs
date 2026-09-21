@@ -15,12 +15,12 @@ using Avalonia;
 // 1. Configure Serilog as the global logger
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
-    .WriteTo.File("logs/rss_reader_.txt", rollingInterval: RollingInterval.Day)
+    .WriteTo.File("logs/robin_reader_.txt", rollingInterval: RollingInterval.Day)
     .CreateLogger();
 
 try
 {
-    Log.Information("Starting RSS Reader application...");
+    Log.Information("Robin is flying!");
 
     // 2. Create the service collection (Dependency Injection container)
     var services = new ServiceCollection();
