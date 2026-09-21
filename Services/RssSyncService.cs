@@ -21,7 +21,26 @@ public class RssSyncService : IRssSyncService
         _logger = logger;
     }
 
-    public async Task<List<Article>> FetchAndProcessFeedAsync(Feed feed, CancellationToken cancellationToken = default)
+    public async Task<List<Article>> SyncFeedAsync(Feed feed, CancellationToken cancellationToken = default)
+    {
+        var actualFeedUrl = await ResolveActualFeedUrlAsync(feed.Url, cancellationToken);
+
+        if (!string.Equals(feed.Url, actualFeedUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            feed.Url = actualFeedUrl;
+            feed.ETag = null;
+            feed.LastModified = null;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return await ProcessFeedAsync(feed, cancellationToken);
+    }
+
+    [Obsolete("Use SyncFeedAsync, which resolves the feed URL before processing it.")]
+    public Task<List<Article>> FetchAndProcessFeedAsync(Feed feed, CancellationToken cancellationToken = default) =>
+        SyncFeedAsync(feed, cancellationToken);
+
+    private async Task<List<Article>> ProcessFeedAsync(Feed feed, CancellationToken cancellationToken = default)
     {
         var newArticles = new List<Article>();
         var client = _httpClientFactory.CreateClient("RssClient");
