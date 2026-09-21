@@ -410,11 +410,26 @@ public class MainWindow : Window
             return;
         }
 
-        var confirmed = await ShowConfirmationDialogAsync("Remove feed", $"Remove '{selectedFeed.Title}' and its articles?");
+        var feedId = selectedFeed.Id;
+        var feedTitle = selectedFeed.Title;
+        var confirmed = await ShowConfirmationDialogAsync("Remove feed", $"Remove '{feedTitle}' and its articles?");
         if (!confirmed)
             return;
 
-        dbContext.Feeds.Remove(selectedFeed);
+        var feed = await dbContext.Feeds.FirstOrDefaultAsync(item => item.Id == feedId);
+        if (feed == null)
+        {
+            selectedFeed = null;
+            await LoadFeedsAsync();
+            status.Text = "Feed was already removed.";
+            return;
+        }
+
+        var articles = await dbContext.Articles
+            .Where(article => article.FeedId == feedId)
+            .ToListAsync();
+        dbContext.Articles.RemoveRange(articles);
+        dbContext.Feeds.Remove(feed);
         await dbContext.SaveChangesAsync();
         selectedFeed = null;
         articleList.ItemsSource = null;

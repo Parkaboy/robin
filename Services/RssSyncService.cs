@@ -124,9 +124,14 @@ public class RssSyncService : IRssSyncService
                     newArticles.Add(article);
                     existingArticles.Add(uniqueId, article); // Prevent duplicates inside the same XML document.
                 }
-                else if (string.IsNullOrWhiteSpace(existingArticle.Content))
+                else
                 {
                     var refreshedArticle = RssSyncServiceHelper.MapToArticle(item, feed.Id, uniqueId);
+
+                    existingArticle.Title = refreshedArticle.Title;
+                    existingArticle.Author = refreshedArticle.Author;
+                    existingArticle.Url = refreshedArticle.Url;
+                    existingArticle.PublishDate = refreshedArticle.PublishDate;
                     if (!string.IsNullOrWhiteSpace(refreshedArticle.Content))
                         existingArticle.Content = refreshedArticle.Content;
                 }
