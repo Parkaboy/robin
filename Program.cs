@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using Avalonia;
 
 // 1. Configure Serilog as the global logger
 Log.Logger = new LoggerConfiguration()
@@ -43,7 +44,7 @@ try
     });
 
     // 6. Build the service provider
-    using var provider = services.BuildServiceProvider();
+    var provider = services.BuildServiceProvider();
 
     // 7. Execute automatic database migrations on startup (SQLite)
     using (var scope = provider.CreateScope())
@@ -52,17 +53,10 @@ try
         dbContext.Database.Migrate();
     }
 
-    // 8. Usage example: Retrieve the service and trigger sync
-    var syncService = provider.GetRequiredService<IRssSyncService>();
-    var db = provider.GetRequiredService<AppDbContext>();
+    App.Services = provider;
+    BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
 
-    // Retrieve the first feed or create a test one if the database is empty
-    var feed = db.Feeds.FirstOrDefault();
-    if (feed != null)
-    {
-        var newArticles = await syncService.FetchAndProcessFeedAsync(feed);
-        Console.WriteLine($"Processed {newArticles.Count} new articles.");
-    }
+    provider.Dispose();
 }
 catch (Exception ex)
 {
@@ -72,3 +66,8 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+static AppBuilder BuildAvaloniaApp() =>
+    AppBuilder.Configure<App>()
+        .UsePlatformDetect()
+        .LogToTrace();
