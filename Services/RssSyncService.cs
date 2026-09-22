@@ -85,11 +85,16 @@ public class RssSyncService : IRssSyncService
             response.EnsureSuccessStatusCode();
 
             // Guardar/Actualizar metadatos de sincronización HTTP
-            if (response.Headers.ETag != null)
+            if (response.Headers.ETag != null) {
                 feed.ETag = response.Headers.ETag.Tag;
+            }
+
 
             if (response.Content.Headers.LastModified.HasValue)
-                feed.LastModified = response.Content.Headers.LastModified.Value.ToString("r");
+            {
+                feed.LastModified = response.Content.Headers.LastModified.Value.ToString("r");                
+            }
+
 
             // 3. Procesamiento del Stream XML
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -100,7 +105,21 @@ public class RssSyncService : IRssSyncService
                 DtdProcessing = DtdProcessing.Ignore
             });
 
-            var syndicationFeed = SyndicationFeed.Load(xmlReader);
+            var document = await System.Xml.Linq.XDocument.LoadAsync(
+                xmlReader,
+                System.Xml.Linq.LoadOptions.PreserveWhitespace,
+                cancellationToken);
+            var removedDateCount = RssSyncServiceHelper.RemoveInvalidDateElements(document);
+            if (removedDateCount > 0)
+            {
+                _logger.LogWarning(
+                    "Se omitieron {Count} fechas inválidas del feed {FeedUrl}",
+                    removedDateCount,
+                    feed.Url);
+            }
+
+            using var feedReader = document.CreateReader();
+            var syndicationFeed = SyndicationFeed.Load(feedReader);
 
             if (!string.IsNullOrWhiteSpace(syndicationFeed.Title?.Text))
                 feed.Title = syndicationFeed.Title.Text;

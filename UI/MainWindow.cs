@@ -15,7 +15,7 @@ public class MainWindow : Window
     private readonly ListBox articleList = new() { Background = Brushes.Transparent };
     private readonly TextBlock articleTitle = new() { FontSize = 28, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Color.Parse("#1A1A1A")) };
     private readonly TextBlock articleMeta = new() { Foreground = new SolidColorBrush(Color.Parse("#616161")), TextWrapping = TextWrapping.Wrap };
-    private readonly TextBlock articleContent = new() { TextWrapping = TextWrapping.Wrap, LineHeight = 1.55, FontSize = 16, Foreground = new SolidColorBrush(Color.Parse("#292929")) };
+    private readonly TextBlock articleContent = new() { TextWrapping = TextWrapping.Wrap, LineHeight = 25, FontSize = 16, Foreground = new SolidColorBrush(Color.Parse("#292929")) };
     private readonly TextBlock status = new() { Foreground = new SolidColorBrush(Color.Parse("#616161")) };
     private Feed? selectedFeed;
 
@@ -310,7 +310,7 @@ public class MainWindow : Window
         articleMeta.Text = $"{article.Author ?? "Unknown author"} | {article.PublishDate:g}\n{article.Url}";
         articleContent.Text = string.IsNullOrWhiteSpace(article.Content)
             ? "This feed does not include the article text. Open the original article using the link above."
-            : article.Content;
+            : ToReadableText(article.Content);
     }
 
     private async void AddFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args)
@@ -492,6 +492,27 @@ public class MainWindow : Window
         articleTitle.Text = "Reading pane";
         articleMeta.Text = string.Empty;
         articleContent.Text = string.Empty;
+    }
+
+    private static string ToReadableText(string html)
+    {
+        var text = System.Text.RegularExpressions.Regex.Replace(
+            html,
+            @"<\s*(script|style)\b[^>]*>.*?<\s*/\s*\1\s*>",
+            string.Empty,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        text = System.Text.RegularExpressions.Regex.Replace(
+            text,
+            @"<\s*(br|/p|/div|/li|/h[1-6])\s*/?\s*>",
+            Environment.NewLine,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"<[^>]+>", string.Empty);
+        text = System.Net.WebUtility.HtmlDecode(text) ?? string.Empty;
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"[ \t\f\v]+", " ");
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"(\r?\n\s*){3,}", Environment.NewLine + Environment.NewLine);
+
+        return text.Trim();
     }
 }
 
