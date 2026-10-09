@@ -1,0 +1,186 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Robin"
+        x:Class="Robin.MainWindow"
+        Title="Robin Reader"
+        Width="1280"
+        Height="760"
+        MinWidth="800"
+        MinHeight="500"
+        Opened="WindowOpened">
+  <Grid RowDefinitions="Auto,*">
+    <Grid x:Name="topBar"
+          ColumnDefinitions="Auto,Auto,Auto,*,Auto"
+          Margin="24,14">
+      <TextBlock x:Name="readingListTitle"
+                 FontSize="16"
+                 FontWeight="SemiBold"
+                 VerticalAlignment="Center" />
+      <Menu x:Name="feedMenu"
+            Grid.Column="1"
+            Margin="24,0,0,0"
+            VerticalAlignment="Center">
+        <MenuItem x:Name="feedMenuItem">
+          <MenuItem x:Name="editSelectedFeedMenuItem" Click="EditSelectedFeedClicked" />
+          <MenuItem x:Name="deleteSelectedFeedMenuItem" Click="DeleteSelectedFeedClicked" />
+        </MenuItem>
+      </Menu>
+      <Menu x:Name="settingsMenu"
+            Grid.Column="2"
+            Margin="12,0,0,0"
+            VerticalAlignment="Center">
+        <MenuItem x:Name="settingsMenuItem">
+          <MenuItem x:Name="appearanceMenuItem">
+            <MenuItem x:Name="lightModeMenuItem" ToggleType="Radio" GroupName="theme" Click="LightModeClicked" />
+            <MenuItem x:Name="darkModeMenuItem" ToggleType="Radio" GroupName="theme" Click="DarkModeClicked" />
+          </MenuItem>
+          <MenuItem x:Name="languageMenuItem">
+            <MenuItem x:Name="languageEnglishMenuItem" ToggleType="Radio" GroupName="language" Click="EnglishLanguageClicked" />
+            <MenuItem x:Name="languageSpanishMenuItem" ToggleType="Radio" GroupName="language" Click="SpanishLanguageClicked" />
+            <MenuItem x:Name="languageGermanMenuItem" ToggleType="Radio" GroupName="language" Click="GermanLanguageClicked" />
+            <MenuItem x:Name="languagePortugueseMenuItem" ToggleType="Radio" GroupName="language" Click="PortugueseLanguageClicked" />
+            <MenuItem x:Name="languageItalianMenuItem" ToggleType="Radio" GroupName="language" Click="ItalianLanguageClicked" />
+          </MenuItem>
+        </MenuItem>
+      </Menu>
+      <Grid Grid.Column="3"
+            ColumnDefinitions="*,Auto"
+            ColumnSpacing="8"
+            MaxWidth="440"
+            HorizontalAlignment="Left">
+        <TextBox x:Name="urlInput"
+                 KeyDown="UrlInputKeyDown" />
+        <Button x:Name="addFeedButton"
+                Grid.Column="1"
+                HorizontalContentAlignment="Center"
+                Click="AddFeedClicked" />
+      </Grid>
+      <TextBlock x:Name="status"
+                 Grid.Column="4"
+                 MaxWidth="240"
+                 VerticalAlignment="Center"
+                 TextTrimming="CharacterEllipsis" />
+    </Grid>
+
+    <Grid x:Name="paneGrid"
+          Grid.Row="1"
+          ColumnDefinitions="220,6,340,6,*"
+          RowDefinitions="*">
+      <Border x:Name="feedsPanel"
+              Grid.Column="0"
+              MinWidth="160"
+              Padding="18,24">
+        <Grid RowDefinitions="Auto,Auto,*">
+          <TextBlock x:Name="feedBrand"
+                     Text="ROBIN"
+                     FontSize="20"
+                     FontWeight="Bold"
+                     LetterSpacing="2" />
+          <TextBlock x:Name="feedSubtitle"
+                     Grid.Row="1"
+                     FontSize="10"
+                     Margin="0,6,0,24" />
+          <TreeView x:Name="feedTree"
+                    Grid.Row="2"
+                    Background="Transparent"
+                    SelectionChanged="FeedTreeSelectionChanged">
+            <TreeView.ItemTemplate>
+              <DataTemplate>
+                <Border Padding="0"
+                        PointerPressed="FeedItemPointerPressed">
+                  <Border.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Tag="ModifyFeed" Click="FeedContextActionClicked" />
+                      <MenuItem Tag="SyncFeed" Click="FeedContextActionClicked" />
+                      <MenuItem Tag="DeleteFeed" Click="FeedContextActionClicked" />
+                    </ContextMenu>
+                  </Border.ContextMenu>
+                  <StackPanel Margin="10,7" Spacing="2">
+                    <TextBlock Text="{Binding Title}"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding ., Converter={x:Static local:FeedSummaryConverter.Instance}}"
+                               FontSize="11"
+                               TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </TreeView.ItemTemplate>
+          </TreeView>
+        </Grid>
+      </Border>
+
+      <GridSplitter x:Name="feedPaneSplitter"
+                    Grid.Column="1"
+                    Width="6"
+                    ResizeDirection="Columns"
+                    ResizeBehavior="PreviousAndNext"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Stretch"
+                    Focusable="True"
+                    KeyDown="PaneSplitterKeyDown" />
+
+      <Border x:Name="articlesPanel"
+              Grid.Column="2"
+              MinWidth="240"
+              Padding="22,24">
+        <Grid RowDefinitions="Auto,Auto,*">
+          <TextBlock x:Name="inboxTitle"
+                     FontSize="22"
+                     FontWeight="Bold" />
+          <TextBlock x:Name="inboxSubtitle"
+                     Grid.Row="1"
+                     FontSize="12"
+                     Margin="0,5,0,18" />
+          <ListBox x:Name="articleList"
+                   Grid.Row="2"
+                   Background="Transparent"
+                   SelectionChanged="ArticleListSelectionChanged">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Border Padding="12,10">
+                  <TextBlock Text="{Binding ., Converter={x:Static local:ArticleTitleConverter.Instance}}"
+                             TextWrapping="Wrap"
+                             MaxHeight="44" />
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <GridSplitter x:Name="articlesPaneSplitter"
+                    Grid.Column="3"
+                    Width="6"
+                    ResizeDirection="Columns"
+                    ResizeBehavior="PreviousAndNext"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Stretch"
+                    Focusable="True"
+                    KeyDown="PaneSplitterKeyDown" />
+
+      <ScrollViewer x:Name="detailScroll"
+                    Grid.Column="4"
+                    MinWidth="280"
+                    Padding="48,42"
+                    HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="14"
+                    MaxWidth="760"
+                    HorizontalAlignment="Left">
+          <TextBlock x:Name="articleTitle"
+                     FontSize="28"
+                     FontWeight="Bold"
+                     TextWrapping="Wrap" />
+          <TextBlock x:Name="articleMeta"
+                     TextWrapping="Wrap" />
+          <Border x:Name="articleDivider"
+                  Height="1"
+                  Margin="0,4,0,8" />
+          <TextBlock x:Name="articleContent"
+                     TextWrapping="Wrap"
+                     LineHeight="25"
+                     FontSize="16" />
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</Window>

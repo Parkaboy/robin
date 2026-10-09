@@ -1,22 +1,19 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
-using Avalonia.Controls.Templates;
-using Avalonia.Layout;
+using Avalonia.Data.Converters;
 using Avalonia.Media;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
-public class MainWindow : Window
+namespace Robin;
+
+public partial class MainWindow : Window
 {
     private readonly AppDbContext dbContext;
     private readonly IRssSyncService syncService;
-    private readonly TextBox urlInput = new() { Watermark = "Paste a feed URL" };
-    private readonly Button addFeedButton = new() { Content = "Add feed", HorizontalContentAlignment = HorizontalAlignment.Center };
-    private readonly TreeView feedTree = new() { Background = Brushes.Transparent };
-    private readonly ListBox articleList = new() { Background = Brushes.Transparent };
-    private readonly TextBlock articleTitle = new() { FontSize = 28, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Color.Parse("#1A1A1A")) };
-    private readonly TextBlock articleMeta = new() { Foreground = new SolidColorBrush(Color.Parse("#616161")), TextWrapping = TextWrapping.Wrap };
-    private readonly TextBlock articleContent = new() { TextWrapping = TextWrapping.Wrap, LineHeight = 25, FontSize = 16, Foreground = new SolidColorBrush(Color.Parse("#292929")) };
-    private readonly TextBlock status = new() { Foreground = new SolidColorBrush(Color.Parse("#616161")) };
+    private string? currentStatusKey;
+    private object?[] currentStatusArguments = Array.Empty<object?>();
     private Feed? selectedFeed;
 
     public MainWindow(AppDbContext dbContext, IRssSyncService syncService)
@@ -24,219 +21,202 @@ public class MainWindow : Window
         this.dbContext = dbContext;
         this.syncService = syncService;
 
-        Title = "Robin Reader";
-        Width = 1280;
-        Height = 760;
-        MinWidth = 800;
-        MinHeight = 500;
-        Background = new SolidColorBrush(Color.Parse("#F5F5F5"));
+        InitializeComponent();
 
-        feedTree.ItemTemplate = new FuncDataTemplate<Feed>((feed, _) =>
-            feed == null
-                ? new TextBlock { Text = "Unknown feed" }
-                : CreateFeedTreeItem(feed));
-        articleList.ItemTemplate = new FuncDataTemplate<Article>((article, _) =>
-            article == null
-                ? new Border
-                {
-                    Padding = new Thickness(12, 10),
-                    Child = new TextBlock { Text = "Untitled article" }
-                }
-                : new Border
-                {
-                    Padding = new Thickness(12, 10),
-                    Child = new TextBlock
-                    {
-                        Text = string.IsNullOrWhiteSpace(article.Title) ? "Untitled article" : article.Title,
-                        TextWrapping = TextWrapping.Wrap,
-                        MaxHeight = 44
-                    }
-                });
-
-        feedTree.SelectionChanged += FeedTreeSelectionChanged;
-        articleList.SelectionChanged += ArticleListSelectionChanged;
-        addFeedButton.Click += AddFeedClicked;
-        urlInput.KeyDown += (_, args) =>
-        {
-            if (args.Key == Avalonia.Input.Key.Enter)
-                AddFeedClicked(this, new Avalonia.Interactivity.RoutedEventArgs());
-        };
-
-        Content = BuildLayout();
-        Opened += async (_, _) => await InitializeAsync();
+        ApplyLocalization();
+        ApplyPalette();
     }
 
-    private Control CreateFeedTreeItem(Feed feed)
+    private async void WindowOpened(object? sender, EventArgs args) => await InitializeAsync();
+
+    private async void UrlInputKeyDown(object? sender, Avalonia.Input.KeyEventArgs args)
     {
-        var item = new Border
+        if (args.Key == Avalonia.Input.Key.Enter)
         {
-            Padding = new Thickness(0),
-            ContextMenu = new ContextMenu
-            {
-                ItemsSource = new object[]
-                {
-                    new MenuItem
-                    {
-                        Header = "Modify feed",
-                        Command = new SimpleCommand(() => RunFeedActionAsync(feed, EditSelectedFeedAsync))
-                    },
-                    new MenuItem
-                    {
-                        Header = "Sync feed",
-                        Command = new SimpleCommand(() => RunFeedActionAsync(feed, SyncSelectedFeedAsync))
-                    },
-                    new MenuItem
-                    {
-                        Header = "Delete feed",
-                        Command = new SimpleCommand(() => RunFeedActionAsync(feed, RemoveSelectedFeedAsync))
-                    }
-                }
-            },
-            Child = new StackPanel
-            {
-                Margin = new Thickness(10, 7),
-                Spacing = 2,
-                Children =
-                {
-                    new TextBlock { Text = feed.Title, TextTrimming = TextTrimming.CharacterEllipsis },
-                    new TextBlock
-                    {
-                        Text = feed.LastSyncSuccess
-                            ? $"{feed.Articles.Count} article(s)"
-                            : "Sync failed",
-                        FontSize = 11,
-                        Foreground = new SolidColorBrush(Color.Parse("#A6A6A6")),
-                        TextTrimming = TextTrimming.CharacterEllipsis
-                    }
-                }
-            }
-        };
-
-        item.PointerPressed += (_, args) =>
-        {
-            if (args.GetCurrentPoint(item).Properties.PointerUpdateKind == Avalonia.Input.PointerUpdateKind.RightButtonPressed)
-                selectedFeed = feed;
-        };
-
-        return item;
+            args.Handled = true;
+            await AddFeedAsync();
+        }
     }
 
-    private Control BuildLayout()
+    private void FeedItemPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs args)
     {
-        var addFeedPanel = new Grid
+        if (sender is not Control item ||
+            args.GetCurrentPoint(item).Properties.PointerUpdateKind != Avalonia.Input.PointerUpdateKind.RightButtonPressed ||
+            item.DataContext is not Feed feed)
         {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-            ColumnSpacing = 8,
-            MaxWidth = 520,
-            HorizontalAlignment = HorizontalAlignment.Left
-        };
-        addFeedPanel.Children.Add(urlInput);
-        Grid.SetColumn(addFeedButton, 1);
-        addFeedPanel.Children.Add(addFeedButton);
+            return;
+        }
 
-        var feedBrand = new TextBlock { Text = "ROBIN", FontSize = 20, FontWeight = FontWeight.Bold, Foreground = Brushes.White, LetterSpacing = 2 };
-        var feedSubtitle = new TextBlock { Text = "YOUR READING DESK", FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#A6A6A6")), Margin = new Thickness(0, 6, 0, 24) };
-        Grid.SetRow(feedSubtitle, 1);
-        Grid.SetRow(feedTree, 2);
-
-        var feedsPanel = new Border
+        selectedFeed = feed;
+        feedTree.SelectedItem = feed;
+        if (item.ContextMenu is { } contextMenu)
         {
-            Background = new SolidColorBrush(Color.Parse("#202020")),
-            Padding = new Thickness(18, 24),
-            Child = new Grid
+            foreach (var menuItem in contextMenu.Items.OfType<MenuItem>())
             {
-                RowDefinitions = new RowDefinitions("Auto,Auto,*"),
-                Children =
-                {
-                    feedBrand,
-                    feedSubtitle,
-                    feedTree
-                }
+                if (menuItem.Tag is string key)
+                    menuItem.Header = UiText.Get(key);
             }
-        };
+        }
+    }
 
-        var inboxTitle = new TextBlock { Text = "Articles", FontSize = 22, FontWeight = FontWeight.Bold, Foreground = new SolidColorBrush(Color.Parse("#1A1A1A")) };
-        var inboxSubtitle = new TextBlock { Text = "Stories from the selected feed", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#616161")), Margin = new Thickness(0, 5, 0, 18) };
-        Grid.SetRow(inboxSubtitle, 1);
-        Grid.SetRow(articleList, 2);
-        var articlesPanel = new Border
-        {
-            Background = Brushes.White,
-            Padding = new Thickness(22, 24),
-            Child = new Grid
-            {
-                RowDefinitions = new RowDefinitions("Auto,Auto,*"),
-                Children =
-                {
-                    inboxTitle,
-                    inboxSubtitle,
-                    articleList
-                }
-            }
-        };
+    private async void FeedContextActionClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args)
+    {
+        if (sender is not MenuItem { Tag: string action })
+            return;
 
-        var details = new StackPanel { Spacing = 14, MaxWidth = 760, HorizontalAlignment = HorizontalAlignment.Left };
-        details.Children.Add(articleTitle);
-        details.Children.Add(articleMeta);
-        details.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.Parse("#E1E1E1")), Margin = new Thickness(0, 4, 0, 8) });
-        details.Children.Add(articleContent);
+        Func<Task> operation = action switch
+        {
+            "ModifyFeed" => EditSelectedFeedAsync,
+            "SyncFeed" => SyncSelectedFeedAsync,
+            "DeleteFeed" => RemoveSelectedFeedAsync,
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown feed action.")
+        };
+        await RunSelectedFeedActionAsync(operation);
+    }
 
-        var detailScroll = new ScrollViewer
-        {
-            Padding = new Thickness(48, 42),
-            Background = new SolidColorBrush(Color.Parse("#FAFAFA")),
-            Content = details,
-            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
-        };
+    private async void EditSelectedFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) =>
+        await RunSelectedFeedActionAsync(EditSelectedFeedAsync);
 
-        var columns = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("220,340,*"),
-            RowDefinitions = new RowDefinitions("*"),
-            Background = new SolidColorBrush(Color.Parse("#F5F5F5"))
-        };
-        columns.Children.Add(feedsPanel);
-        Grid.SetColumn(articlesPanel, 1);
-        columns.Children.Add(articlesPanel);
-        Grid.SetColumn(detailScroll, 2);
-        columns.Children.Add(detailScroll);
+    private async void DeleteSelectedFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) =>
+        await RunSelectedFeedActionAsync(RemoveSelectedFeedAsync);
 
-        var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
-        var topBar = new Grid
+    private async void LightModeClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) => await SetThemeAsync(false);
+    private async void DarkModeClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) => await SetThemeAsync(true);
+    private async void EnglishLanguageClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) => await SetLanguageAsync(UiLanguage.English);
+    private async void SpanishLanguageClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) => await SetLanguageAsync(UiLanguage.Spanish);
+    private async void GermanLanguageClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) => await SetLanguageAsync(UiLanguage.German);
+    private async void PortugueseLanguageClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) => await SetLanguageAsync(UiLanguage.Portuguese);
+    private async void ItalianLanguageClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) => await SetLanguageAsync(UiLanguage.Italian);
+
+    private void PaneSplitterKeyDown(object? sender, Avalonia.Input.KeyEventArgs args)
+    {
+        if (sender is not GridSplitter splitter || splitter.Parent is not Grid paneGrid)
+            return;
+
+        var delta = args.Key switch
         {
-            ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto"),
-            Background = Brushes.White,
-            Margin = new Thickness(24, 14)
+            Avalonia.Input.Key.Left => -12,
+            Avalonia.Input.Key.Right => 12,
+            _ => 0
         };
-        topBar.Children.Add(new TextBlock { Text = "Reading list", FontSize = 16, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center });
-        var feedMenu = new Menu
-        {
-            ItemsSource = new[]
-            {
-                new MenuItem
-                {
-                    Header = "Feeds",
-                    ItemsSource = new[]
-                    {
-                        new MenuItem { Header = "Edit selected feed", Command = new SimpleCommand(async () => await EditSelectedFeedAsync()) },
-                        new MenuItem { Header = "Remove selected feed", Command = new SimpleCommand(async () => await RemoveSelectedFeedAsync()) }
-                    }
-                }
-            },
-            Margin = new Thickness(24, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        Grid.SetColumn(feedMenu, 1);
-        topBar.Children.Add(feedMenu);
-        Grid.SetColumn(addFeedPanel, 2);
-        topBar.Children.Add(addFeedPanel);
-        status.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(status, 3);
-        topBar.Children.Add(status);
-        root.Children.Add(topBar);
-        Grid.SetRow(columns, 1);
-        root.Children.Add(columns);
-        return root;
+        if (delta == 0)
+            return;
+
+        var column = Grid.GetColumn(splitter);
+        var previous = paneGrid.ColumnDefinitions[column - 1];
+        var next = paneGrid.ColumnDefinitions[column + 1];
+        var previousWidth = previous.Width.Value;
+        var nextWidth = next.Width.IsAbsolute ? next.Width.Value : 0;
+        if (delta > 0 && next.Width.IsAbsolute && nextWidth <= next.MinWidth ||
+            delta < 0 && previousWidth <= previous.MinWidth)
+            return;
+
+        previous.Width = new GridLength(previousWidth + delta);
+        if (next.Width.IsAbsolute)
+            next.Width = new GridLength(nextWidth - delta);
+        args.Handled = true;
+    }
+    private void RebuildMenus()
+    {
+        feedMenuItem.Header = UiText.Get("Feeds");
+        editSelectedFeedMenuItem.Header = UiText.Get("EditSelectedFeed");
+        deleteSelectedFeedMenuItem.Header = UiText.Get("DeleteSelectedFeed");
+        settingsMenuItem.Header = UiText.Get("Settings");
+        appearanceMenuItem.Header = UiText.Get("Appearance");
+        lightModeMenuItem.Header = UiText.Get("LightMode");
+        lightModeMenuItem.IsChecked = !App.Preferences.IsDarkMode;
+        darkModeMenuItem.Header = UiText.Get("DarkMode");
+        darkModeMenuItem.IsChecked = App.Preferences.IsDarkMode;
+        languageMenuItem.Header = UiText.Get("Language");
+        languageEnglishMenuItem.Header = UiText.LanguageName(UiLanguage.English);
+        languageEnglishMenuItem.IsChecked = UiText.Language == UiLanguage.English;
+        languageSpanishMenuItem.Header = UiText.LanguageName(UiLanguage.Spanish);
+        languageSpanishMenuItem.IsChecked = UiText.Language == UiLanguage.Spanish;
+        languageGermanMenuItem.Header = UiText.LanguageName(UiLanguage.German);
+        languageGermanMenuItem.IsChecked = UiText.Language == UiLanguage.German;
+        languagePortugueseMenuItem.Header = UiText.LanguageName(UiLanguage.Portuguese);
+        languagePortugueseMenuItem.IsChecked = UiText.Language == UiLanguage.Portuguese;
+        languageItalianMenuItem.Header = UiText.LanguageName(UiLanguage.Italian);
+        languageItalianMenuItem.IsChecked = UiText.Language == UiLanguage.Italian;
+    }
+
+    private void ApplyLocalization()
+    {
+        Title = UiText.Get("WindowTitle");
+        readingListTitle.Text = UiText.Get("ReadingList");
+        feedSubtitle.Text = UiText.Get("FeedSubtitle");
+        inboxTitle.Text = UiText.Get("Articles");
+        inboxSubtitle.Text = UiText.Get("ArticlesSubtitle");
+        urlInput.Watermark = UiText.Get("FeedUrlWatermark");
+        addFeedButton.Content = UiText.Get("AddFeed");
+        if (articleList.SelectedItem is Article selectedArticle)
+            UpdateArticleDetails(selectedArticle);
+        else
+            articleTitle.Text = UiText.Get("ReadingPane");
+        AutomationProperties.SetName(urlInput, UiText.Get("FeedUrlWatermark"));
+        AutomationProperties.SetName(addFeedButton, UiText.Get("AddFeed"));
+        AutomationProperties.SetName(feedMenu, UiText.Get("Feeds"));
+        AutomationProperties.SetName(settingsMenu, UiText.Get("Settings"));
+        AutomationProperties.SetName(feedsPanel, UiText.Get("FeedList"));
+        AutomationProperties.SetName(articlesPanel, UiText.Get("Articles"));
+        AutomationProperties.SetName(detailScroll, UiText.Get("ReadingPane"));
+        AutomationProperties.SetName(feedTree, UiText.Get("FeedList"));
+        AutomationProperties.SetName(articleList, UiText.Get("ArticleList"));
+        AutomationProperties.SetName(status, UiText.Get("Status"));
+        AutomationProperties.SetLiveSetting(status, AutomationLiveSetting.Polite);
+        AutomationProperties.SetName(feedPaneSplitter, UiText.Get("ResizeFeedPane"));
+        AutomationProperties.SetName(articlesPaneSplitter, UiText.Get("ResizeArticlesPane"));
+        RebuildMenus();
+        var selectedFeedId = selectedFeed?.Id;
+        var currentFeeds = feedTree.ItemsSource;
+        feedTree.ItemsSource = null;
+        feedTree.ItemsSource = currentFeeds;
+        if (selectedFeedId.HasValue && currentFeeds is IEnumerable<Feed> feeds)
+            feedTree.SelectedItem = feeds.FirstOrDefault(feed => feed.Id == selectedFeedId.Value);
+        if (currentStatusKey != null)
+            status.Text = currentStatusArguments.Length == 0
+                ? UiText.Get(currentStatusKey)
+                : UiText.Format(currentStatusKey, currentStatusArguments);
+    }
+
+    private void ApplyPalette()
+    {
+        var dark = App.Preferences.IsDarkMode;
+        Background = Brush(dark ? "#12161C" : "#F3F5F8");
+        topBar.Background = Brush(dark ? "#1B2028" : "#FFFFFF");
+        feedsPanel.Background = Brush(dark ? "#202630" : "#E8EDF3");
+        articlesPanel.Background = Brush(dark ? "#1B2028" : "#FFFFFF");
+        detailScroll.Background = Brush(dark ? "#151A21" : "#FAFBFC");
+        articleDivider.Background = Brush(dark ? "#3A424E" : "#D9DEE5");
+        feedBrand.Foreground = Brush(dark ? "#F4F6F9" : "#17202A");
+        feedSubtitle.Foreground = Brush(dark ? "#C2CAD4" : "#536170");
+        inboxTitle.Foreground = Brush(dark ? "#F4F6F9" : "#1A1A1A");
+        inboxSubtitle.Foreground = Brush(dark ? "#C2CAD4" : "#536170");
+        articleTitle.Foreground = Brush(dark ? "#F4F6F9" : "#1A1A1A");
+        articleMeta.Foreground = Brush(dark ? "#C2CAD4" : "#505B68");
+        articleContent.Foreground = Brush(dark ? "#E4E8EE" : "#292929");
+        status.Foreground = Brush(dark ? "#C2CAD4" : "#505B68");
+        feedPaneSplitter.Background = Brush(dark ? "#505B68" : "#B9C2CD");
+        articlesPaneSplitter.Background = Brush(dark ? "#505B68" : "#B9C2CD");
+    }
+
+    private static SolidColorBrush Brush(string color) => new(Color.Parse(color));
+
+    private string FormatArticleCount(int count) =>
+        UiText.Format(count == 1 ? "ArticleCountOne" : "ArticleCountMany", count);
+
+    private void SetStatus(string key, params object?[] arguments)
+    {
+        currentStatusKey = key;
+        currentStatusArguments = arguments;
+        status.Text = arguments.Length == 0 ? UiText.Get(key) : UiText.Format(key, arguments);
+    }
+
+    private void SetStatusMessage(string message)
+    {
+        currentStatusKey = null;
+        currentStatusArguments = Array.Empty<object?>();
+        status.Text = message;
     }
 
     private async Task LoadFeedsAsync()
@@ -247,7 +227,7 @@ public class MainWindow : Window
             .OrderBy(feed => feed.Title)
             .ToListAsync();
         feedTree.ItemsSource = feeds;
-        status.Text = $"{feeds.Count} feed(s)";
+        SetStatus(feeds.Count == 1 ? "FeedCountOne" : "FeedCountMany", feeds.Count);
     }
 
     private async Task InitializeAsync()
@@ -255,7 +235,7 @@ public class MainWindow : Window
         try
         {
             var feeds = await dbContext.Feeds.OrderBy(feed => feed.Title).ToListAsync();
-            status.Text = feeds.Count == 0 ? "No feeds yet" : "Syncing feeds...";
+            SetStatus(feeds.Count == 0 ? "NoFeeds" : "SyncingFeeds");
 
             foreach (var feed in feeds)
             {
@@ -265,7 +245,7 @@ public class MainWindow : Window
                 }
                 catch (Exception ex)
                 {
-                    status.Text = $"Could not sync {feed.Title}: {ex.Message}";
+                    SetStatus("CouldNotSyncFeed", feed.Title, ex.Message);
                 }
             }
 
@@ -273,7 +253,7 @@ public class MainWindow : Window
         }
         catch (Exception ex)
         {
-            status.Text = $"Could not load feeds: {ex.Message}";
+            SetStatus("CouldNotLoadFeeds", ex.Message);
         }
     }
 
@@ -290,11 +270,12 @@ public class MainWindow : Window
 
         if (selectedFeed != null)
         {
-            status.Text = articleList.ItemsSource is IEnumerable<Article> articles
-                ? $"{articles.Count()} article(s)"
-                : "No articles";
+            var articleCount = articleList.ItemsSource is IEnumerable<Article> articles
+                ? articles.Count()
+                : 0;
+            SetStatus(articleCount == 1 ? "ArticleCountOne" : "ArticleCountMany", articleCount);
             if (!selectedFeed.LastSyncSuccess && !string.IsNullOrWhiteSpace(selectedFeed.LastSyncError))
-                status.Text = selectedFeed.LastSyncError;
+                SetStatusMessage(selectedFeed.LastSyncError);
         }
     }
 
@@ -306,24 +287,36 @@ public class MainWindow : Window
             return;
         }
 
+        UpdateArticleDetails(article);
+    }
+
+    private void UpdateArticleDetails(Article article)
+    {
         articleTitle.Text = article.Title;
-        articleMeta.Text = $"{article.Author ?? "Unknown author"} | {article.PublishDate:g}\n{article.Url}";
+        articleMeta.Text = UiText.Format(
+            "ArticleMetadataFormat",
+            article.Author ?? UiText.Get("UnknownAuthor"),
+            article.PublishDate,
+            article.Url);
         articleContent.Text = string.IsNullOrWhiteSpace(article.Content)
-            ? "This feed does not include the article text. Open the original article using the link above."
+            ? UiText.Get("MissingArticleText")
             : ToReadableText(article.Content);
     }
 
-    private async void AddFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args)
+    private async void AddFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) =>
+        await AddFeedAsync();
+
+    private async Task AddFeedAsync()
     {
         if (!Uri.TryCreate(urlInput.Text?.Trim(), UriKind.Absolute, out var url) ||
             (url.Scheme != Uri.UriSchemeHttp && url.Scheme != Uri.UriSchemeHttps))
         {
-            status.Text = "Enter a valid HTTP or HTTPS URL.";
+            SetStatus("InvalidHttpUrl");
             return;
         }
 
         addFeedButton.IsEnabled = false;
-        status.Text = "Syncing feed...";
+        SetStatus("SyncingFeed");
         try
         {
             var feed = new Feed { Url = url.ToString(), Title = url.Host };
@@ -335,13 +328,14 @@ public class MainWindow : Window
             feedTree.SelectedItem = feedTree.ItemsSource is IEnumerable<Feed> loadedFeeds
                 ? loadedFeeds.FirstOrDefault(loadedFeed => loadedFeed.Id == feed.Id)
                 : null;
-            status.Text = feed.LastSyncSuccess
-                ? $"Added {feed.Title}. {newArticles.Count} new article(s)."
-                : feed.LastSyncError ?? "The feed could not be synchronized.";
+            if (feed.LastSyncSuccess)
+                SetStatus("AddedFeed", feed.Title, newArticles.Count);
+            else
+                SetStatusMessage(feed.LastSyncError ?? UiText.Get("CouldNotSync"));
         }
         catch (Exception ex)
         {
-            status.Text = ex.Message;
+            SetStatusMessage(ex.Message);
         }
         finally
         {
@@ -353,11 +347,11 @@ public class MainWindow : Window
     {
         if (selectedFeed == null)
         {
-            status.Text = "Select a feed first.";
+            SetStatus("SelectFeedFirst");
             return;
         }
 
-        var newUrl = await ShowFeedUrlDialogAsync("Edit feed", selectedFeed.Url);
+        var newUrl = await ShowFeedUrlDialogAsync(UiText.Get("EditFeed"), selectedFeed.Url);
         if (newUrl == null)
             return;
 
@@ -366,8 +360,20 @@ public class MainWindow : Window
         feedToUpdate.LastSyncSuccess = false;
         feedToUpdate.LastSyncError = null;
         await dbContext.SaveChangesAsync();
-        status.Text = "Feed updated. It will sync the next time the app starts.";
+        SetStatus("FeedUpdated");
         await LoadFeedsAsync();
+    }
+
+    private async Task RunSelectedFeedActionAsync(Func<Task> action)
+    {
+        var feed = feedTree.SelectedItem as Feed ?? selectedFeed;
+        if (feed == null)
+        {
+            SetStatus("SelectFeedFirst");
+            return;
+        }
+
+        await RunFeedActionAsync(feed, action);
     }
 
     private async Task RunFeedActionAsync(Feed feed, Func<Task> action)
@@ -379,7 +385,7 @@ public class MainWindow : Window
         }
         catch (Exception ex)
         {
-            status.Text = ex.Message;
+            SetStatusMessage(ex.Message);
         }
     }
 
@@ -388,7 +394,7 @@ public class MainWindow : Window
         if (selectedFeed == null)
             return;
 
-        status.Text = $"Syncing {selectedFeed.Title}...";
+        SetStatus("SyncingFeedNamed", selectedFeed.Title);
         var feed = await dbContext.Feeds.FirstAsync(item => item.Id == selectedFeed.Id);
         var newArticles = await syncService.SyncFeedAsync(feed);
         await LoadFeedsAsync();
@@ -397,22 +403,25 @@ public class MainWindow : Window
             ? feeds.FirstOrDefault(item => item.Id == feed.Id)
             : null;
         feedTree.SelectedItem = refreshedFeed;
-        status.Text = feed.LastSyncSuccess
-            ? $"{newArticles.Count} new article(s)"
-            : feed.LastSyncError ?? "The feed could not be synchronized.";
+        if (feed.LastSyncSuccess)
+            SetStatus(newArticles.Count == 1 ? "NewArticleCountOne" : "NewArticleCountMany", newArticles.Count);
+        else
+            SetStatusMessage(feed.LastSyncError ?? UiText.Get("CouldNotSync"));
     }
 
     private async Task RemoveSelectedFeedAsync()
     {
         if (selectedFeed == null)
         {
-            status.Text = "Select a feed first.";
+            SetStatus("SelectFeedFirst");
             return;
         }
 
         var feedId = selectedFeed.Id;
         var feedTitle = selectedFeed.Title;
-        var confirmed = await ShowConfirmationDialogAsync("Remove feed", $"Remove '{feedTitle}' and its articles?");
+        var confirmed = await ShowConfirmationDialogAsync(
+            UiText.Get("RemoveFeed"),
+            UiText.Format("RemoveFeedConfirmation", feedTitle));
         if (!confirmed)
             return;
 
@@ -421,7 +430,7 @@ public class MainWindow : Window
         {
             selectedFeed = null;
             await LoadFeedsAsync();
-            status.Text = "Feed was already removed.";
+            SetStatus("FeedAlreadyRemoved");
             return;
         }
 
@@ -435,61 +444,68 @@ public class MainWindow : Window
         articleList.ItemsSource = null;
         ClearArticle();
         await LoadFeedsAsync();
-        status.Text = "Feed removed.";
+        SetStatus("FeedRemoved");
+    }
+
+    private Task SetLanguageAsync(UiLanguage language)
+    {
+        var previousLanguage = App.Preferences.Language;
+        App.Preferences.Language = language;
+        UiText.SetLanguage(language);
+        ApplyLocalization();
+
+        try
+        {
+            App.Preferences.Save();
+        }
+        catch (Exception ex)
+        {
+            App.Preferences.Language = previousLanguage;
+            UiText.SetLanguage(previousLanguage);
+            ApplyLocalization();
+            SetStatus("CouldNotSaveSettings", ex.Message);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task SetThemeAsync(bool isDarkMode)
+    {
+        var previousTheme = App.Preferences.IsDarkMode;
+        App.Preferences.IsDarkMode = isDarkMode;
+        App.ApplyThemeVariant();
+        ApplyPalette();
+        RebuildMenus();
+
+        try
+        {
+            App.Preferences.Save();
+        }
+        catch (Exception ex)
+        {
+            App.Preferences.IsDarkMode = previousTheme;
+            App.ApplyThemeVariant();
+            ApplyPalette();
+            RebuildMenus();
+            SetStatus("CouldNotSaveSettings", ex.Message);
+        }
+
+        return Task.CompletedTask;
     }
 
     private async Task<string?> ShowFeedUrlDialogAsync(string title, string initialUrl)
     {
-        var input = new TextBox { Text = initialUrl, MinWidth = 420 };
-        var dialog = new Window { Title = title, Width = 520, Height = 170, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        var save = new Button { Content = "Save", IsDefault = true };
-        var cancel = new Button { Content = "Cancel", IsCancel = true };
-        save.Click += (_, _) =>
-        {
-            if (Uri.TryCreate(input.Text?.Trim(), UriKind.Absolute, out var uri) &&
-                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
-            {
-                dialog.Close(uri.ToString());
-            }
-        };
-        cancel.Click += (_, _) => dialog.Close(null);
-        dialog.Content = new StackPanel
-        {
-            Margin = new Thickness(20),
-            Spacing = 12,
-            Children =
-            {
-                new TextBlock { Text = "Feed URL" },
-                input,
-                new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { save, cancel } }
-            }
-        };
-        return await dialog.ShowDialog<string?>(this);
+        return await new FeedUrlDialog(title, initialUrl).ShowDialog<string?>(this);
     }
 
     private async Task<bool> ShowConfirmationDialogAsync(string title, string message)
     {
-        var dialog = new Window { Title = title, Width = 420, Height = 160, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        var remove = new Button { Content = "Remove" };
-        var cancel = new Button { Content = "Cancel", IsCancel = true };
-        remove.Click += (_, _) => dialog.Close(true);
-        cancel.Click += (_, _) => dialog.Close(false);
-        dialog.Content = new StackPanel
-        {
-            Margin = new Thickness(20),
-            Spacing = 16,
-            Children =
-            {
-                new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
-                new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { remove, cancel } }
-            }
-        };
-        return await dialog.ShowDialog<bool>(this);
+        return await new FeedConfirmationDialog(title, message).ShowDialog<bool>(this);
     }
 
     private void ClearArticle()
     {
-        articleTitle.Text = "Reading pane";
+        articleTitle.Text = UiText.Get("ReadingPane");
         articleMeta.Text = string.Empty;
         articleContent.Text = string.Empty;
     }
@@ -516,17 +532,30 @@ public class MainWindow : Window
     }
 }
 
-public sealed class SimpleCommand : System.Windows.Input.ICommand
+public sealed class FeedSummaryConverter : IValueConverter
 {
-    private readonly Func<Task> execute;
+    public static FeedSummaryConverter Instance { get; } = new();
 
-    public SimpleCommand(Func<Task> execute) => this.execute = execute;
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is Feed { LastSyncSuccess: false }
+            ? UiText.Get("SyncFailed")
+            : value is Feed feed
+                ? UiText.Format(feed.Articles.Count == 1 ? "ArticleCountOne" : "ArticleCountMany", feed.Articles.Count)
+                : UiText.Get("UnknownFeed");
 
-    public bool CanExecute(object? parameter) => true;
-    public event EventHandler? CanExecuteChanged
-    {
-        add { }
-        remove { }
-    }
-    public async void Execute(object? parameter) => await execute();
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+public sealed class ArticleTitleConverter : IValueConverter
+{
+    public static ArticleTitleConverter Instance { get; } = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is Article article && !string.IsNullOrWhiteSpace(article.Title)
+            ? article.Title
+            : UiText.Get("UntitledArticle");
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
 }
