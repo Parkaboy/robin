@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="WindowTitle" xml:space="preserve">
+    <value>Robin Reader</value>
+  </data>
+  <data name="About" xml:space="preserve">
+    <value>Acerca de</value>
+  </data>
+  <data name="AboutDescription" xml:space="preserve">
+    <value>Robin es un lector ligero para tus fuentes RSS.</value>
+  </data>
+  <data name="LoadingData" xml:space="preserve">
+    <value>Cargando tus fuentes...</value>
+  </data>
+  <data name="VersionFormat" xml:space="preserve">
+    <value>Versión {0}</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Cerrar</value>
+  </data>
+  <data name="ReadingList" xml:space="preserve">
+    <value>Lista de lectura</value>
+  </data>
+  <data name="Feeds" xml:space="preserve">
+    <value>Fuentes</value>
+  </data>
+  <data name="EditSelectedFeed" xml:space="preserve">
+    <value>Editar fuente seleccionada</value>
+  </data>
+  <data name="DeleteSelectedFeed" xml:space="preserve">
+    <value>Eliminar fuente seleccionada</value>
+  </data>
+  <data name="Articles" xml:space="preserve">
+    <value>Artículos</value>
+  </data>
+  <data name="ArticlesSubtitle" xml:space="preserve">
+    <value>Historias de la fuente seleccionada</value>
+  </data>
+  <data name="ReadingPane" xml:space="preserve">
+    <value>Panel de lectura</value>
+  </data>
+  <data name="FeedSubtitle" xml:space="preserve">
+    <value>TU ESPACIO DE LECTURA</value>
+  </data>
+  <data name="FeedUrlWatermark" xml:space="preserve">
+    <value>Pega la URL de una fuente</value>
+  </data>
+  <data name="AddFeed" xml:space="preserve">
+    <value>Añadir fuente</value>
+  </data>
+  <data name="ModifyFeed" xml:space="preserve">
+    <value>Modificar fuente</value>
+  </data>
+  <data name="SyncFeed" xml:space="preserve">
+    <value>Sincronizar fuente</value>
+  </data>
+  <data name="DeleteFeed" xml:space="preserve">
+    <value>Eliminar fuente</value>
+  </data>
+  <data name="UnknownFeed" xml:space="preserve">
+    <value>Fuente desconocida</value>
+  </data>
+  <data name="UntitledArticle" xml:space="preserve">
+    <value>Artículo sin título</value>
+  </data>
+  <data name="SyncFailed" xml:space="preserve">
+    <value>Error al sincronizar</value>
+  </data>
+  <data name="ArticleCountOne" xml:space="preserve">
+    <value>{0} artículo</value>
+  </data>
+  <data name="ArticleCountMany" xml:space="preserve">
+    <value>{0} artículos</value>
+  </data>
+  <data name="FeedCountOne" xml:space="preserve">
+    <value>{0} fuente</value>
+  </data>
+  <data name="FeedCountMany" xml:space="preserve">
+    <value>{0} fuentes</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Idioma</value>
+  </data>
+  <data name="Settings" xml:space="preserve">
+    <value>Configuración</value>
+  </data>
+  <data name="Appearance" xml:space="preserve">
+    <value>Apariencia</value>
+  </data>
+  <data name="LightMode" xml:space="preserve">
+    <value>Claro</value>
+  </data>
+  <data name="DarkMode" xml:space="preserve">
+    <value>Oscuro</value>
+  </data>
+  <data name="NoFeeds" xml:space="preserve">
+    <value>Aún no hay fuentes</value>
+  </data>
+  <data name="SyncingFeeds" xml:space="preserve">
+    <value>Sincronizando fuentes...</value>
+  </data>
+  <data name="CouldNotSyncFeed" xml:space="preserve">
+    <value>No se pudo sincronizar {0}: {1}</value>
+  </data>
+  <data name="CouldNotLoadFeeds" xml:space="preserve">
+    <value>No se pudieron cargar las fuentes: {0}</value>
+  </data>
+  <data name="UnknownAuthor" xml:space="preserve">
+    <value>Autor desconocido</value>
+  </data>
+  <data name="ArticleMetadataFormat" xml:space="preserve">
+    <value>{0} | {1:g}
+{2}</value>
+  </data>
+  <data name="MissingArticleText" xml:space="preserve">
+    <value>Esta fuente no incluye el texto del artículo. Abre el artículo original con el enlace de arriba.</value>
+  </data>
+  <data name="InvalidHttpUrl" xml:space="preserve">
+    <value>Introduce una URL HTTP o HTTPS válida.</value>
+  </data>
+  <data name="SyncingFeed" xml:space="preserve">
+    <value>Sincronizando fuente...</value>
+  </data>
+  <data name="AddedFeed" xml:space="preserve">
+    <value>Se añadió {0}. Artículos nuevos: {1}.</value>
+  </data>
+  <data name="CouldNotSync" xml:space="preserve">
+    <value>No se pudo sincronizar la fuente.</value>
+  </data>
+  <data name="SelectFeedFirst" xml:space="preserve">
+    <value>Selecciona una fuente primero.</value>
+  </data>
+  <data name="EditFeed" xml:space="preserve">
+    <value>Editar fuente</value>
+  </data>
+  <data name="FeedUrl" xml:space="preserve">
+    <value>URL de la fuente</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Guardar</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="FeedUpdated" xml:space="preserve">
+    <value>Fuente actualizada. Se sincronizará la próxima vez que inicies la aplicación.</value>
+  </data>
+  <data name="RemoveFeed" xml:space="preserve">
+    <value>Eliminar fuente</value>
+  </data>
+  <data name="ConfirmRemove" xml:space="preserve">
+    <value>Eliminar</value>
+  </data>
+  <data name="RemoveFeedConfirmation" xml:space="preserve">
+    <value>¿Eliminar «{0}» y sus artículos?</value>
+  </data>
+  <data name="FeedAlreadyRemoved" xml:space="preserve">
+    <value>La fuente ya se había eliminado.</value>
+  </data>
+  <data name="FeedRemoved" xml:space="preserve">
+    <value>Fuente eliminada.</value>
+  </data>
+  <data name="SyncingFeedNamed" xml:space="preserve">
+    <value>Sincronizando {0}...</value>
+  </data>
+  <data name="NewArticleCountOne" xml:space="preserve">
+    <value>{0} artículo nuevo</value>
+  </data>
+  <data name="NewArticleCountMany" xml:space="preserve">
+    <value>{0} artículos nuevos</value>
+  </data>
+  <data name="CouldNotSaveSettings" xml:space="preserve">
+    <value>No se pudieron guardar las preferencias: {0}</value>
+  </data>
+  <data name="ResizeFeedPane" xml:space="preserve">
+    <value>Cambiar el tamaño del panel de fuentes</value>
+  </data>
+  <data name="ResizeArticlesPane" xml:space="preserve">
+    <value>Cambiar el tamaño del panel de artículos</value>
+  </data>
+  <data name="FeedList" xml:space="preserve">
+    <value>Lista de fuentes</value>
+  </data>
+  <data name="ArticleList" xml:space="preserve">
+    <value>Lista de artículos</value>
+  </data>
+  <data name="Status" xml:space="preserve">
+    <value>Estado</value>
+  </data>
+  <data name="LanguageEnglish" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="LanguageSpanish" xml:space="preserve">
+    <value>Español</value>
+  </data>
+  <data name="LanguageGerman" xml:space="preserve">
+    <value>Deutsch</value>
+  </data>
+  <data name="LanguagePortuguese" xml:space="preserve">
+    <value>Português</value>
+  </data>
+  <data name="LanguageItalian" xml:space="preserve">
+    <value>Italiano</value>
+  </data>
+</root>

@@ -1,0 +1,22 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Robin.AboutWindow"
+        Width="380"
+        SizeToContent="Height"
+        MinHeight="220"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+  <StackPanel Margin="28"
+              Spacing="14">
+    <TextBlock x:Name="aboutTitle"
+               FontSize="24"
+               FontWeight="Bold" />
+    <TextBlock x:Name="aboutDescription"
+               TextWrapping="Wrap" />
+    <TextBlock x:Name="versionText" />
+    <Button x:Name="closeButton"
+            HorizontalAlignment="Right"
+            IsDefault="True"
+            Click="CloseClicked" />
+  </StackPanel>
+</Window>

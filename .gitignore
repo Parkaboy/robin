@@ -1,0 +1,23 @@
+# Build output
+bin/
+obj/
+build-validation/
+
+# Runtime data and logs
+*.db
+*.db-shm
+*.db-wal
+logs/
+
+# IDE and editor files
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
