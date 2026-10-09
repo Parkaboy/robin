@@ -1,22 +1,32 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="using:Avalonia.Automation"
         x:Class="Robin.AboutWindow"
-        Width="380"
-        SizeToContent="Height"
-        MinHeight="220"
+        XYFocus.NavigationModes="Keyboard"
+        Width="420"
+        Height="320"
         CanResize="False"
         WindowStartupLocation="CenterOwner">
-  <StackPanel Margin="28"
-              Spacing="14">
-    <TextBlock x:Name="aboutTitle"
-               FontSize="24"
-               FontWeight="Bold" />
-    <TextBlock x:Name="aboutDescription"
-               TextWrapping="Wrap" />
-    <TextBlock x:Name="versionText" />
-    <Button x:Name="closeButton"
-            HorizontalAlignment="Right"
-            IsDefault="True"
-            Click="CloseClicked" />
-  </StackPanel>
+    <StackPanel Margin="28" Spacing="12">
+        <TextBlock x:Name="aboutTitle"
+                   automation:AutomationProperties.HeadingLevel="1"
+                   FontSize="24"
+                   FontWeight="SemiBold" />
+        <TextBlock x:Name="aboutVersion"
+                   Classes="label" />
+        <TextBlock x:Name="aboutDescription"
+                   TextWrapping="Wrap" />
+        <TextBlock x:Name="aboutTechnology"
+                   Classes="label" />
+        <TextBlock x:Name="aboutCopyright"
+                   Classes="label" />
+        <TextBlock x:Name="aboutLicense"
+                   Classes="label" />
+        <Button x:Name="buyMeACoffeeButton"
+                Click="BuyMeACoffee_OnClick"
+                HorizontalAlignment="Left" />
+        <Button x:Name="closeButton"
+                Click="Close_OnClick"
+                HorizontalAlignment="Right" />
+    </StackPanel>
 </Window>

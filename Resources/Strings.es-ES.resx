@@ -18,8 +18,29 @@
   <data name="About" xml:space="preserve">
     <value>Acerca de</value>
   </data>
+  <data name="AboutRobinReader" xml:space="preserve">
+    <value>Acerca de Robin Reader</value>
+  </data>
+  <data name="RobinReader" xml:space="preserve">
+    <value>Robin Reader</value>
+  </data>
   <data name="AboutDescription" xml:space="preserve">
     <value>Robin es un lector ligero para tus fuentes RSS.</value>
+  </data>
+  <data name="AboutTechnology" xml:space="preserve">
+    <value>Desarrollado con Avalonia UI y .NET 10</value>
+  </data>
+  <data name="AboutCopyright" xml:space="preserve">
+    <value>Proyecto de código abierto de sus colaboradores</value>
+  </data>
+  <data name="AboutLicense" xml:space="preserve">
+    <value>Consulta el repositorio del proyecto para ver la licencia</value>
+  </data>
+  <data name="BuyMeACoffeeMessage" xml:space="preserve">
+    <value>Invítame a un café</value>
+  </data>
+  <data name="BuyMeACoffeeUrl" xml:space="preserve">
+    <value>https://www.buymeacoffee.com/</value>
   </data>
   <data name="LoadingData" xml:space="preserve">
     <value>Cargando tus fuentes...</value>
