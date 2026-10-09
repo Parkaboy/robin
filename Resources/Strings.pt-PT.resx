@@ -15,6 +15,21 @@
   <data name="WindowTitle" xml:space="preserve">
     <value>Robin Reader</value>
   </data>
+  <data name="About" xml:space="preserve">
+    <value>Sobre</value>
+  </data>
+  <data name="AboutDescription" xml:space="preserve">
+    <value>O Robin é um leitor leve para os seus feeds RSS.</value>
+  </data>
+  <data name="LoadingData" xml:space="preserve">
+    <value>A carregar os seus feeds...</value>
+  </data>
+  <data name="VersionFormat" xml:space="preserve">
+    <value>Versão {0}</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Fechar</value>
+  </data>
   <data name="ReadingList" xml:space="preserve">
     <value>Lista de leitura</value>
   </data>

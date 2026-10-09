@@ -80,6 +80,9 @@ public partial class MainWindow : Window
     private async void DeleteSelectedFeedClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) =>
         await RunSelectedFeedActionAsync(RemoveSelectedFeedAsync);
 
+    private async void AboutClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) =>
+        await new AboutWindow().ShowDialog(this);
+
     private async void LightModeClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) => await SetThemeAsync(false);
     private async void DarkModeClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) => await SetThemeAsync(true);
     private async void EnglishLanguageClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs args) => await SetLanguageAsync(UiLanguage.English);
@@ -122,6 +125,7 @@ public partial class MainWindow : Window
         editSelectedFeedMenuItem.Header = UiText.Get("EditSelectedFeed");
         deleteSelectedFeedMenuItem.Header = UiText.Get("DeleteSelectedFeed");
         settingsMenuItem.Header = UiText.Get("Settings");
+        aboutMenuItem.Header = UiText.Get("About");
         appearanceMenuItem.Header = UiText.Get("Appearance");
         lightModeMenuItem.Header = UiText.Get("LightMode");
         lightModeMenuItem.IsChecked = !App.Preferences.IsDarkMode;
@@ -149,6 +153,7 @@ public partial class MainWindow : Window
         inboxSubtitle.Text = UiText.Get("ArticlesSubtitle");
         urlInput.Watermark = UiText.Get("FeedUrlWatermark");
         addFeedButton.Content = UiText.Get("AddFeed");
+        loadingMessage.Text = UiText.Get("LoadingData");
         if (articleList.SelectedItem is Article selectedArticle)
             UpdateArticleDetails(selectedArticle);
         else
@@ -157,6 +162,8 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(addFeedButton, UiText.Get("AddFeed"));
         AutomationProperties.SetName(feedMenu, UiText.Get("Feeds"));
         AutomationProperties.SetName(settingsMenu, UiText.Get("Settings"));
+        AutomationProperties.SetName(aboutMenuItem, UiText.Get("About"));
+        AutomationProperties.SetName(loadingMessage, UiText.Get("LoadingData"));
         AutomationProperties.SetName(feedsPanel, UiText.Get("FeedList"));
         AutomationProperties.SetName(articlesPanel, UiText.Get("Articles"));
         AutomationProperties.SetName(detailScroll, UiText.Get("ReadingPane"));
@@ -196,6 +203,9 @@ public partial class MainWindow : Window
         articleMeta.Foreground = Brush(dark ? "#C2CAD4" : "#505B68");
         articleContent.Foreground = Brush(dark ? "#E4E8EE" : "#292929");
         status.Foreground = Brush(dark ? "#C2CAD4" : "#505B68");
+        loadingSplash.Background = Brush(dark ? "#12161C" : "#F3F5F8");
+        splashBrand.Foreground = Brush(dark ? "#F4F6F9" : "#17202A");
+        loadingMessage.Foreground = Brush(dark ? "#C2CAD4" : "#536170");
         feedPaneSplitter.Background = Brush(dark ? "#505B68" : "#B9C2CD");
         articlesPaneSplitter.Background = Brush(dark ? "#505B68" : "#B9C2CD");
     }
@@ -254,6 +264,10 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             SetStatus("CouldNotLoadFeeds", ex.Message);
+        }
+        finally
+        {
+            loadingSplash.IsVisible = false;
         }
     }
 

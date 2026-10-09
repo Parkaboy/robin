@@ -10,7 +10,7 @@
         Opened="WindowOpened">
   <Grid RowDefinitions="Auto,*">
     <Grid x:Name="topBar"
-          ColumnDefinitions="Auto,Auto,Auto,*,Auto"
+          ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto"
           Margin="24,14">
       <TextBlock x:Name="readingListTitle"
                  FontSize="16"
@@ -43,7 +43,12 @@
           </MenuItem>
         </MenuItem>
       </Menu>
-      <Grid Grid.Column="3"
+      <Menu Grid.Column="3"
+            Margin="12,0,0,0"
+            VerticalAlignment="Center">
+        <MenuItem x:Name="aboutMenuItem" Click="AboutClicked" />
+      </Menu>
+      <Grid Grid.Column="4"
             ColumnDefinitions="*,Auto"
             ColumnSpacing="8"
             MaxWidth="440"
@@ -56,7 +61,7 @@
                 Click="AddFeedClicked" />
       </Grid>
       <TextBlock x:Name="status"
-                 Grid.Column="4"
+                 Grid.Column="5"
                  MaxWidth="240"
                  VerticalAlignment="Center"
                  TextTrimming="CharacterEllipsis" />
@@ -182,5 +187,27 @@
         </StackPanel>
       </ScrollViewer>
     </Grid>
+
+    <Border x:Name="loadingSplash"
+            Grid.RowSpan="2"
+            IsVisible="True"
+            Background="#F3F5F8">
+      <StackPanel HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Spacing="8">
+        <TextBlock x:Name="splashBrand"
+                   Text="ROBIN"
+                   HorizontalAlignment="Center"
+                   FontSize="28"
+                   FontWeight="Bold"
+                   LetterSpacing="3" />
+        <TextBlock x:Name="loadingMessage"
+                   HorizontalAlignment="Center" />
+        <ProgressBar Width="240"
+                     Height="6"
+                     Margin="0,12,0,0"
+                     IsIndeterminate="True" />
+      </StackPanel>
+    </Border>
   </Grid>
 </Window>
