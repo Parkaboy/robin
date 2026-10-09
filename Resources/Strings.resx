@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="WindowTitle" xml:space="preserve">
+    <value>Robin Reader</value>
+  </data>
+  <data name="ReadingList" xml:space="preserve">
+    <value>Reading list</value>
+  </data>
+  <data name="Feeds" xml:space="preserve">
+    <value>Feeds</value>
+  </data>
+  <data name="EditSelectedFeed" xml:space="preserve">
+    <value>Edit selected feed</value>
+  </data>
+  <data name="DeleteSelectedFeed" xml:space="preserve">
+    <value>Delete selected feed</value>
+  </data>
+  <data name="Articles" xml:space="preserve">
+    <value>Articles</value>
+  </data>
+  <data name="ArticlesSubtitle" xml:space="preserve">
+    <value>Stories from the selected feed</value>
+  </data>
+  <data name="ReadingPane" xml:space="preserve">
+    <value>Reading pane</value>
+  </data>
+  <data name="FeedSubtitle" xml:space="preserve">
+    <value>YOUR READING DESK</value>
+  </data>
+  <data name="FeedUrlWatermark" xml:space="preserve">
+    <value>Paste a feed URL</value>
+  </data>
+  <data name="AddFeed" xml:space="preserve">
+    <value>Add feed</value>
+  </data>
+  <data name="ModifyFeed" xml:space="preserve">
+    <value>Modify feed</value>
+  </data>
+  <data name="SyncFeed" xml:space="preserve">
+    <value>Sync feed</value>
+  </data>
+  <data name="DeleteFeed" xml:space="preserve">
+    <value>Delete feed</value>
+  </data>
+  <data name="UnknownFeed" xml:space="preserve">
+    <value>Unknown feed</value>
+  </data>
+  <data name="UntitledArticle" xml:space="preserve">
+    <value>Untitled article</value>
+  </data>
+  <data name="SyncFailed" xml:space="preserve">
+    <value>Sync failed</value>
+  </data>
+  <data name="ArticleCountOne" xml:space="preserve">
+    <value>{0} article</value>
+  </data>
+  <data name="ArticleCountMany" xml:space="preserve">
+    <value>{0} articles</value>
+  </data>
+  <data name="FeedCountOne" xml:space="preserve">
+    <value>{0} feed</value>
+  </data>
+  <data name="FeedCountMany" xml:space="preserve">
+    <value>{0} feeds</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="LightMode" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="DarkMode" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="NoFeeds" xml:space="preserve">
+    <value>No feeds yet</value>
+  </data>
+  <data name="SyncingFeeds" xml:space="preserve">
+    <value>Syncing feeds...</value>
+  </data>
+  <data name="CouldNotSyncFeed" xml:space="preserve">
+    <value>Could not sync {0}: {1}</value>
+  </data>
+  <data name="CouldNotLoadFeeds" xml:space="preserve">
+    <value>Could not load feeds: {0}</value>
+  </data>
+  <data name="UnknownAuthor" xml:space="preserve">
+    <value>Unknown author</value>
+  </data>
+  <data name="ArticleMetadataFormat" xml:space="preserve">
+    <value>{0} | {1:g}
+{2}</value>
+  </data>
+  <data name="MissingArticleText" xml:space="preserve">
+    <value>This feed does not include the article text. Open the original article using the link above.</value>
+  </data>
+  <data name="InvalidHttpUrl" xml:space="preserve">
+    <value>Enter a valid HTTP or HTTPS URL.</value>
+  </data>
+  <data name="SyncingFeed" xml:space="preserve">
+    <value>Syncing feed...</value>
+  </data>
+  <data name="AddedFeed" xml:space="preserve">
+    <value>Added {0}. New articles: {1}.</value>
+  </data>
+  <data name="CouldNotSync" xml:space="preserve">
+    <value>The feed could not be synchronized.</value>
+  </data>
+  <data name="SelectFeedFirst" xml:space="preserve">
+    <value>Select a feed first.</value>
+  </data>
+  <data name="EditFeed" xml:space="preserve">
+    <value>Edit feed</value>
+  </data>
+  <data name="FeedUrl" xml:space="preserve">
+    <value>Feed URL</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="FeedUpdated" xml:space="preserve">
+    <value>Feed updated. It will sync the next time the app starts.</value>
+  </data>
+  <data name="RemoveFeed" xml:space="preserve">
+    <value>Remove feed</value>
+  </data>
+  <data name="ConfirmRemove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="RemoveFeedConfirmation" xml:space="preserve">
+    <value>Remove '{0}' and its articles?</value>
+  </data>
+  <data name="FeedAlreadyRemoved" xml:space="preserve">
+    <value>Feed was already removed.</value>
+  </data>
+  <data name="FeedRemoved" xml:space="preserve">
+    <value>Feed removed.</value>
+  </data>
+  <data name="SyncingFeedNamed" xml:space="preserve">
+    <value>Syncing {0}...</value>
+  </data>
+  <data name="NewArticleCountOne" xml:space="preserve">
+    <value>{0} new article</value>
+  </data>
+  <data name="NewArticleCountMany" xml:space="preserve">
+    <value>{0} new articles</value>
+  </data>
+  <data name="CouldNotSaveSettings" xml:space="preserve">
+    <value>Could not save preferences: {0}</value>
+  </data>
+  <data name="ResizeFeedPane" xml:space="preserve">
+    <value>Resize feed pane</value>
+  </data>
+  <data name="ResizeArticlesPane" xml:space="preserve">
+    <value>Resize articles pane</value>
+  </data>
+  <data name="FeedList" xml:space="preserve">
+    <value>Feed list</value>
+  </data>
+  <data name="ArticleList" xml:space="preserve">
+    <value>Article list</value>
+  </data>
+  <data name="Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="LanguageEnglish" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="LanguageSpanish" xml:space="preserve">
+    <value>Español</value>
+  </data>
+  <data name="LanguageGerman" xml:space="preserve">
+    <value>Deutsch</value>
+  </data>
+  <data name="LanguagePortuguese" xml:space="preserve">
+    <value>Português</value>
+  </data>
+  <data name="LanguageItalian" xml:space="preserve">
+    <value>Italiano</value>
+  </data>
+</root>
